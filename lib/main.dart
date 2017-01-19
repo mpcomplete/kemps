@@ -72,33 +72,6 @@ class KempsNamesState extends State<KempsNames> {
   List<String> _players = new List<String>(5);
   bool _autovalidate = false;
 
-  void showInSnackBar(String value) {
-    _scaffoldKey.currentState.showSnackBar(new SnackBar(
-      content: new Text(value)
-    ));
-  }
-
-  void _handleSubmitted() {
-    FormState form = _formKey.currentState;
-    if (!form.validate()) {
-      _autovalidate = true;
-      showInSnackBar('Please fix the errors in red before submitting.');
-    } else {
-      form.save();
-      config.app.initPlayers(_players);
-      Navigator.popAndPushNamed(context, '/play');
-    }
-  }
-
-  Widget _makeInput(int n) {
-    return new InputFormField(
-      labelText: 'Player $n',
-      isDense: true,
-      onSaved: (InputValue val) { _players[n-1] = val.text; },
-      validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
@@ -131,6 +104,33 @@ class KempsNamesState extends State<KempsNames> {
       )
     );
   }
+
+  void showInSnackBar(String value) {
+    _scaffoldKey.currentState.showSnackBar(new SnackBar(
+      content: new Text(value)
+    ));
+  }
+
+  void _handleSubmitted() {
+    FormState form = _formKey.currentState;
+    if (!form.validate()) {
+      _autovalidate = true;
+      showInSnackBar('Please fix the errors in red before submitting.');
+    } else {
+      form.save();
+      config.app.initPlayers(_players);
+      Navigator.popAndPushNamed(context, '/play');
+    }
+  }
+
+  Widget _makeInput(int n) {
+    return new InputFormField(
+      labelText: 'Player $n',
+      isDense: true,
+      onSaved: (InputValue val) { _players[n-1] = val.text; },
+      validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
+    );
+  }
 }
 
 class KempsPlay extends StatefulWidget {
@@ -148,31 +148,6 @@ class KempsPlayState extends State<KempsPlay> {
   List<bool> _selected = new List<bool>.filled(5, false);
 
   List<Player> get players => config.app.players;
-
-  void _handleKemps() {
-    for (int i = 0; i < 5; ++i) {
-      if (_selected[i]) {
-        players[i].score++;
-        for (int j = 0; j < 5; ++j) {
-          if (i != j && _selected[j])
-            players[i].addProfitsWith(j);
-        }
-      }
-    }
-    setState(() {
-      _selected = new List<bool>.filled(5, false);
-    });
-  }
-
-  void _handleUnkemps() {
-    for (int i = 0; i < 5; ++i) {
-      if (_selected[i])
-        players[i].score--;
-    }
-    setState(() {
-      _selected = new List<bool>.filled(5, false);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +191,31 @@ class KempsPlayState extends State<KempsPlay> {
         ]
       )
     );
+  }
+
+  void _handleKemps() {
+    for (int i = 0; i < 5; ++i) {
+      if (_selected[i]) {
+        players[i].score++;
+        for (int j = 0; j < 5; ++j) {
+          if (i != j && _selected[j])
+            players[i].addProfitsWith(j);
+        }
+      }
+    }
+    setState(() {
+      _selected = new List<bool>.filled(5, false);
+    });
+  }
+
+  void _handleUnkemps() {
+    for (int i = 0; i < 5; ++i) {
+      if (_selected[i])
+        players[i].score--;
+    }
+    setState(() {
+      _selected = new List<bool>.filled(5, false);
+    });
   }
 }
 
