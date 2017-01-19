@@ -13,13 +13,12 @@ class Player {
 // 0
 //         3
 //     4
-// Friends of 0: [2, 3]
-List<int> getFriends(int playerIndex) {
-  return <int>[
-    (playerIndex + 2) % 5,
-    (playerIndex + 3) % 5,
-  ];
-}
+int enemy1(int playerIndex) => (playerIndex + 1) % 5;
+int friend1(int playerIndex) => (playerIndex + 2) % 5;
+int friend2(int playerIndex) => (playerIndex + 3) % 5;
+int enemy2(int playerIndex) => (playerIndex + 4) % 5;
+
+List<int> getFriends(int playerIndex) => <int>[friend1(playerIndex), friend2(playerIndex)];
 
 class KempsApp extends StatefulWidget {
   KempsApp({ Key key }) : super(key: key);
@@ -145,8 +144,9 @@ class KempsPlayState extends State<KempsPlay> {
 
   List<bool> _checked = new List<bool>.filled(5, false);
 
+  List<Player> get players => config.app.players;
+
   Widget _makeCheckbox(int index) {
-    // TODO: disable if partner is not selected
     return new Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -156,7 +156,7 @@ class KempsPlayState extends State<KempsPlay> {
             setState(() => _checked[index] = value);
           }
         ),
-        new Text(config.app.players[index].name + ' ${config.app.players[index].score} and ${config.app.players[index].profitSharing}')
+        new Text(players[index].name + ' ${players[index].score} and ${players[index].profitSharing}')
       ]
     );
   }
@@ -164,12 +164,22 @@ class KempsPlayState extends State<KempsPlay> {
   void _handleKemps() {
     for (int i = 0; i < 5; ++i) {
       if (_checked[i]) {
-        config.app.players[i].score++;
+        players[i].score++;
         for (int j = 0; j < 5; ++j) {
-          if (_checked[j])
-            config.app.players[i].profitSharing[j] = 1 + (config.app.players[i].profitSharing[j] ?? 0);
+          if (i != j && _checked[j])
+            players[i].profitSharing[j] = 1 + (players[i].profitSharing[j] ?? 0);
         }
       }
+    }
+    setState(() {
+      _checked = new List<bool>.filled(5, false);
+    });
+  }
+
+  void _handleUnkemps() {
+    for (int i = 0; i < 5; ++i) {
+      if (_checked[i])
+        players[i].score--;
     }
     setState(() {
       _checked = new List<bool>.filled(5, false);
@@ -208,7 +218,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('UNKEMPS'),
-                  onPressed: () {},
+                  onPressed: _handleUnkemps,
                 ),
               ),
             ]
