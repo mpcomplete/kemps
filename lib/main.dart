@@ -4,11 +4,8 @@ class Player {
   Player(this.name);
 
   String name;
-
   int score = 0;
-
-  // List of player indices for each hand won with that player.
-  List<int> wins;
+  Map<int, int> profitSharing = <int, int>{};
 }
 
 //     1
@@ -159,9 +156,24 @@ class KempsPlayState extends State<KempsPlay> {
             setState(() => _checked[index] = value);
           }
         ),
-        new Text(config.app.players[index].name)
+        new Text(config.app.players[index].name + ' ${config.app.players[index].score} and ${config.app.players[index].profitSharing}')
       ]
     );
+  }
+
+  void _handleKemps() {
+    for (int i = 0; i < 5; ++i) {
+      if (_checked[i]) {
+        config.app.players[i].score++;
+        for (int j = 0; j < 5; ++j) {
+          if (_checked[j])
+            config.app.players[i].profitSharing[j] = 1 + (config.app.players[i].profitSharing[j] ?? 0);
+        }
+      }
+    }
+    setState(() {
+      _checked = new List<bool>.filled(5, false);
+    });
   }
 
   @override
@@ -188,7 +200,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('KEMPS'),
-                  onPressed: () {},
+                  onPressed: _handleKemps,
                 ),
               ),
               new Container(
