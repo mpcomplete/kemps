@@ -6,6 +6,11 @@ class Player {
   String name;
   int score = 0;
   Map<int, int> profitSharing = <int, int>{};
+
+  int getProfitsWith(int index) => profitSharing[index] ?? 0;
+  void addProfitsWith(int index) {
+    profitSharing[index] = getProfitsWith(index) + 1;
+  }
 }
 
 //     1
@@ -17,8 +22,6 @@ int enemy1(int playerIndex) => (playerIndex + 1) % 5;
 int friend1(int playerIndex) => (playerIndex + 2) % 5;
 int friend2(int playerIndex) => (playerIndex + 3) % 5;
 int enemy2(int playerIndex) => (playerIndex + 4) % 5;
-
-List<int> getFriends(int playerIndex) => <int>[friend1(playerIndex), friend2(playerIndex)];
 
 class KempsApp extends StatefulWidget {
   KempsApp({ Key key }) : super(key: key);
@@ -142,47 +145,32 @@ class KempsPlay extends StatefulWidget {
 class KempsPlayState extends State<KempsPlay> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
-  List<bool> _checked = new List<bool>.filled(5, false);
+  List<bool> _selected = new List<bool>.filled(5, false);
 
   List<Player> get players => config.app.players;
 
-  Widget _makeCheckbox(int index) {
-    return new Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        new Checkbox(
-          value: _checked[index],
-          onChanged: (bool value) {
-            setState(() => _checked[index] = value);
-          }
-        ),
-        new Text(players[index].name + ' ${players[index].score} and ${players[index].profitSharing}')
-      ]
-    );
-  }
-
   void _handleKemps() {
     for (int i = 0; i < 5; ++i) {
-      if (_checked[i]) {
+      if (_selected[i]) {
         players[i].score++;
         for (int j = 0; j < 5; ++j) {
-          if (i != j && _checked[j])
-            players[i].profitSharing[j] = 1 + (players[i].profitSharing[j] ?? 0);
+          if (i != j && _selected[j])
+            players[i].addProfitsWith(j);
         }
       }
     }
     setState(() {
-      _checked = new List<bool>.filled(5, false);
+      _selected = new List<bool>.filled(5, false);
     });
   }
 
   void _handleUnkemps() {
     for (int i = 0; i < 5; ++i) {
-      if (_checked[i])
+      if (_selected[i])
         players[i].score--;
     }
     setState(() {
-      _checked = new List<bool>.filled(5, false);
+      _selected = new List<bool>.filled(5, false);
     });
   }
 
@@ -197,11 +185,13 @@ class KempsPlayState extends State<KempsPlay> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _makeCheckbox(0),
-          _makeCheckbox(1),
-          _makeCheckbox(2),
-          _makeCheckbox(3),
-          _makeCheckbox(4),
+          new KempsScores(
+            app: config.app,
+            selected: _selected,
+            onSelectedChanged: (int index, bool value) {
+              setState(() => _selected[index] = value);
+            }
+          ),
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
@@ -229,26 +219,74 @@ class KempsPlayState extends State<KempsPlay> {
   }
 }
 
-class KempsScores extends StatefulWidget {
-  KempsScores(this.app);
+class KempsScores extends StatelessWidget {
+  KempsScores({this.app, this.selected, this.onSelectedChanged});
 
-  KempsAppState app;
-
-  @override
-  KempsScoresState createState() => new KempsScoresState();
-}
-
-class KempsScoresState extends State<KempsScores> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
+  final KempsAppState app;
+  final List<bool> selected;
+  final Function onSelectedChanged;
 
   @override
   Widget build(BuildContext context) {
-    return new Scaffold(
-      key: _scaffoldKey,
-      appBar: new AppBar(
-        title: new Text('Enter Players')
-      ),
-      body: new Text('wee')
+    return new Material(
+      child: new Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 40.0),
+        child: new Table(
+          // columnWidths: <int, TableColumnWidth>{
+          //   0: const FixedColumnWidth(64.0)
+          // },
+          children: <TableRow>[
+            _buildRow(0),
+            _buildRow(1),
+            _buildRow(2),
+            _buildRow(3),
+            _buildRow(4),
+          ]
+        )
+      )
+    );
+  }
+
+  TableRow _buildRow(int index) {
+    return new TableRow(
+      children: <Widget>[
+        new TableCell(
+          verticalAlignment: TableCellVerticalAlignment.middle,
+          child: new Checkbox(
+            value: selected[index],
+            onChanged: (bool value) {
+              onSelectedChanged(index, value);
+            }
+          ),
+        ),
+        new TableCell(
+          verticalAlignment: TableCellVerticalAlignment.middle,
+          child: new Text(app.players[index].name)
+        ),
+        new TableCell(
+          verticalAlignment: TableCellVerticalAlignment.middle,
+          child: new Text(app.players[index].score.toString())
+        ),
+        new TableCell(
+          verticalAlignment: TableCellVerticalAlignment.middle,
+          child: new Table(
+            children: <TableRow>[
+              new TableRow(
+                children: <Widget>[
+                  new TableCell(child: new Text(app.players[friend1(index)].name)),
+                  new TableCell(child: new Text(app.players[index].getProfitsWith(friend1(index)).toString())),
+                ]
+              ),
+              new TableRow(
+                children: <Widget>[
+                  new TableCell(child: new Text(app.players[friend2(index)].name)),
+                  new TableCell(child: new Text(app.players[index].getProfitsWith(friend2(index)).toString())),
+                ]
+              ),
+            ]
+          )
+        ),
+      ]
     );
   }
 }
