@@ -1,0 +1,5 @@
+name: kemps
+description: A new flutter project.
+dependencies:
+  flutter:
+    sdk: flutter
