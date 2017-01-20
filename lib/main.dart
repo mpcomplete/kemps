@@ -124,8 +124,9 @@ class KempsNamesState extends State<KempsNames> {
   }
 
   Widget _makeInput(int n) {
-    return new InputFormField(
+    return new TextField(
       labelText: 'Player $n',
+      initialValue: new InputValue(text: 'Player $n'), // @@@MP
       isDense: true,
       onSaved: (InputValue val) { _players[n-1] = val.text; },
       validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
@@ -145,7 +146,10 @@ class KempsPlay extends StatefulWidget {
 class KempsPlayState extends State<KempsPlay> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
-  List<bool> _selected = new List<bool>.filled(5, false);
+  List<bool> _selected;
+  Function _onSelectedChanged;
+  int _caller;
+  List<int> _callees;
 
   List<Player> get players => config.app.players;
 
@@ -163,9 +167,7 @@ class KempsPlayState extends State<KempsPlay> {
           new KempsScores(
             app: config.app,
             selected: _selected,
-            onSelectedChanged: (int index, bool value) {
-              setState(() => _selected[index] = value);
-            }
+            onSelectedChanged: _onSelectedChanged,
           ),
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -187,24 +189,76 @@ class KempsPlayState extends State<KempsPlay> {
                 ),
               ),
             ]
-          )
+          ),
+          new Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              new Container(
+                padding: const EdgeInsets.all(20.0),
+                alignment: const FractionalOffset(0.5, 0.5),
+                child: new RaisedButton(
+                  child: new Text('CO-KEMPS'),
+                  // onPressed: _handleKemps,
+                ),
+              ),
+              new Container(
+                padding: const EdgeInsets.all(20.0),
+                alignment: const FractionalOffset(0.5, 0.5),
+                child: new RaisedButton(
+                  child: new Text('CO-UNKEMPS'),
+                  // onPressed: _handleUnkemps,
+                ),
+              ),
+            ]
+          ),
         ]
       )
     );
   }
 
-  void _handleKemps() {
+  List<int> _getSelectedIndices() {
+    List<int> result = <int>[];
     for (int i = 0; i < 5; ++i) {
-      if (_selected[i]) {
-        players[i].score++;
-        for (int j = 0; j < 5; ++j) {
-          if (i != j && _selected[j])
-            players[i].addProfitsWith(j);
-        }
-      }
+      if (_selected[i])
+        result.add(i);
     }
+    return result;
+  }
+
+  void _handleKemps() {
+    if (_onSelectedChanged == null) {
+      setState(() {
+        // Shows the checkboxes.
+        _selected = new List<bool>.filled(5, false);
+        _onSelectedChanged = _selectCaller;
+      });
+    } else if (_onSelectedChanged == _selectCallees) {
+      List<int> callees = _getSelectedIndices();
+      players[_caller].score += callees.length == 1 ? 1 : 2;
+      for (int i in callees) {
+        players[i].score += 1;
+        players[i].addProfitsWith(_caller);
+        players[_caller].addProfitsWith(i);
+      }
+      setState(() {
+        _selected = null;
+        _onSelectedChanged = null;
+      });
+    }
+  }
+
+  void _selectCaller(int index, bool value) {
+    assert(value == true);
     setState(() {
       _selected = new List<bool>.filled(5, false);
+      _caller = index;
+      _onSelectedChanged = _selectCallees;
+    });
+  }
+
+  void _selectCallees(int index, bool value) {
+    setState(() {
+      _selected[index] = value;
     });
   }
 
@@ -252,12 +306,14 @@ class KempsScores extends StatelessWidget {
       children: <Widget>[
         new TableCell(
           verticalAlignment: TableCellVerticalAlignment.middle,
-          child: new Checkbox(
-            value: selected[index],
-            onChanged: (bool value) {
-              onSelectedChanged(index, value);
-            }
-          ),
+          child: selected == null ?
+            new Container(height: 48.0) :
+            new Checkbox(
+              value: selected[index],
+              onChanged: onSelectedChanged == null ? null : (bool value) {
+                onSelectedChanged(index, value);
+              }
+            ),
         ),
         new TableCell(
           verticalAlignment: TableCellVerticalAlignment.middle,
