@@ -224,7 +224,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('CO-KEMPS'),
-                  onPressed: _canPress(KempsCall.coKemps) ? _handleKemps : null,
+                  onPressed: _canPress(KempsCall.coKemps) ? _handleCoKemps : null,
                 ),
               ),
               new Container(
@@ -262,7 +262,11 @@ class KempsPlayState extends State<KempsPlay> {
       _call == null || (
         _call == callButton &&
         _onSelectedChanged == _selectCallees &&
-        _callees.isNotEmpty
+        _selectedIndices.length >= 1
+      ) || (
+        _call == callButton &&
+        _call == KempsCall.coKemps &&
+        _selectedIndices.length >= 2
       )
     );
   }
@@ -311,14 +315,55 @@ class KempsPlayState extends State<KempsPlay> {
     }
   }
 
+  void _handleCoKemps() {
+    if (_onSelectedChanged == null) {
+      setState(() {
+        // Shows the checkboxes.
+        _selected = new List<bool>.filled(5, false);
+        _enabled = new List<bool>.filled(5, true);
+        _onSelectedChanged = _selectCaller;
+        _call = KempsCall.coKemps;
+        _message = 'Select the players who called Co-Kemps';
+      });
+    } else if (_onSelectedChanged == _selectCaller) {
+      List<int> callers = _selectedIndices;
+      assert(callers.length == 2 || callers.length == 3);
+      for (int i in callers) {
+        players[i].score += callers.length == 2 ? 2 : 5;
+        for (int j in callers) {
+          if (i != j)
+            players[i].addProfitsWith(j);
+        }
+      }
+      if (callers.length == 2) {
+        _showInSnackBar('Co-Kemps! ${_getNames(callers)}');
+      } else {
+        _showInSnackBar('TRINITY KEMPS! ${_getNames(callers)}');
+      }
+      _resetCall();
+    } else {
+      assert(false);
+    }
+  }
+
   void _resetCall() {
     setState(() {
       _selected = new List<bool>.filled(5, false);
       _enabled = new List<bool>.filled(5, false);
       _onSelectedChanged = null;
       _call = null;
+      _caller = null;
       _message = null;
     });
+  }
+
+  List<int> get _selectedIndices {
+    List<int> result = <int>[];
+    for (int i = 0; i < 5; ++i) {
+      if (_selected[i])
+        result.add(i);
+    }
+    return result;
   }
 
   List<int> get _callees {
@@ -347,22 +392,32 @@ class KempsPlayState extends State<KempsPlay> {
   }
 
   void _selectCaller(int index, bool value) {
-    assert(value == true);
     setState(() {
+      assert(value);
+      _selected[index] = true;
+      bool firstCaller = _caller == null;
+      _caller = index;
+
       switch (_call) {
         case KempsCall.kemps:
-        case KempsCall.coKemps:
           _enabled = _makeBools(<int>[friend1(index), friend2(index)]);
+          _onSelectedChanged = _selectCallees;
+          _message = 'Select the callee(s)';
+          break;
+        case KempsCall.coKemps:
+          if (firstCaller) {
+            _enabled = _makeBools(<int>[friend1(index), friend2(index)]);
+          } else {
+            _enabled[index] = false;
+          }
           break;
         case KempsCall.unkemps:
         case KempsCall.coUnkemps:
           _enabled = _makeBools(<int>[enemy1(index), enemy2(index)]);
+          _onSelectedChanged = _selectCallees;
+          _message = 'Select the callee(s)';
           break;
       }
-      _selected[index] = true;
-      _caller = index;
-      _onSelectedChanged = _selectCallees;
-      _message = 'Select the callee(s)';
     });
   }
 
