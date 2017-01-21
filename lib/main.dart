@@ -154,12 +154,19 @@ class KempsPlayState extends State<KempsPlay> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   List<bool> _selected;
+  List<bool> _enabled;
   Function _onSelectedChanged;
   KempsCall _call;
   int _caller;
   String _message;
 
   List<Player> get players => config.app.players;
+
+  @override
+  void initState() {
+    super.initState();
+    resetCall();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +182,18 @@ class KempsPlayState extends State<KempsPlay> {
           new KempsScores(
             app: config.app,
             selected: _selected,
+            enabled: _enabled,
             onSelectedChanged: _onSelectedChanged,
+          ),
+          new Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              new Container(
+                height: 48.0,
+                padding: const EdgeInsets.only(bottom: 20.0),
+                child: new Text(_message ?? ''),
+              )
+            ]
           ),
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -222,10 +240,16 @@ class KempsPlayState extends State<KempsPlay> {
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              new Container(
-                padding: const EdgeInsets.all(20.0),
-                child: new Text(_message ?? ''),
-              )
+              _call == null ?
+                new Container() :
+                new Container(
+                  padding: const EdgeInsets.all(20.0),
+                  alignment: const FractionalOffset(0.5, 0.5),
+                  child: new RaisedButton(
+                    child: new Text('CANCEL'),
+                    onPressed: _resetCall,
+                  ),
+                ),
             ]
           ),
         ]
@@ -238,7 +262,7 @@ class KempsPlayState extends State<KempsPlay> {
       _call == null || (
         _call == callButton &&
         _onSelectedChanged == _selectCallees &&
-        _getSelectedIndices().isNotEmpty
+        _getSelectedIndices().length > 1
       )
     );
   }
@@ -248,6 +272,7 @@ class KempsPlayState extends State<KempsPlay> {
       setState(() {
         // Shows the checkboxes.
         _selected = new List<bool>.filled(5, false);
+        _enabled = new List<bool>.filled(5, true);
         _onSelectedChanged = _selectCaller;
         _call = KempsCall.kemps;
         _message = 'Select the player who called Kemps';
@@ -271,8 +296,10 @@ class KempsPlayState extends State<KempsPlay> {
       setState(() {
         // Shows the checkboxes.
         _selected = new List<bool>.filled(5, false);
+        _enabled = new List<bool>.filled(5, true);
         _onSelectedChanged = _selectCaller;
         _call = KempsCall.unkemps;
+        _message = 'Select the player who called Unkemps';
       });
     } else if (_onSelectedChanged == _selectCallees) {
       List<int> callees = _getSelectedIndices();
@@ -284,7 +311,8 @@ class KempsPlayState extends State<KempsPlay> {
 
   void _resetCall() {
     setState(() {
-      _selected = null;
+      _selected = new List<bool>.filled(5, false);
+      _enabled = new List<bool>.filled(5, false);
       _onSelectedChanged = null;
       _call = null;
       _message = null;
@@ -303,11 +331,30 @@ class KempsPlayState extends State<KempsPlay> {
   void _selectCaller(int index, bool value) {
     assert(value == true);
     setState(() {
-      _selected = new List<bool>.filled(5, false);
+      switch (_call) {
+        case KempsCall.kemps:
+        case KempsCall.coKemps:
+          _enabled = _makeBools(<int>[friend1(index), friend2(index)]);
+          break;
+        case KempsCall.unkemps:
+        case KempsCall.coUnkemps:
+          _enabled = _makeBools(<int>[enemy1(index), enemy2(index)]);
+          break;
+      }
+      _selected[index] = true;
       _caller = index;
       _onSelectedChanged = _selectCallees;
-      _message = 'Select the callees';
+      _message = 'Select the callee(s)';
     });
+  }
+
+  // Returns 5 bools with `true` at each given index.
+  // _makeBools([1, 2]) returns [false, true, true, false, false]
+  List<bool> _makeBools(List<int> trueValues) {
+    List<bool> result = new List<bool>.filled(5, false);
+    for (int i in trueValues)
+      result[i] = true;
+    return result;
   }
 
   void _selectCallees(int index, bool value) {
@@ -318,10 +365,15 @@ class KempsPlayState extends State<KempsPlay> {
 }
 
 class KempsScores extends StatelessWidget {
-  KempsScores({this.app, this.selected, this.onSelectedChanged});
+  KempsScores({this.app, this.selected, this.enabled, this.onSelectedChanged}) {
+    assert(app != null);
+    assert(selected != null);
+    assert(enabled != null);
+  }
 
   final KempsAppState app;
   final List<bool> selected;
+  final List<bool> enabled;
   final Function onSelectedChanged;
 
   @override
@@ -353,11 +405,11 @@ class KempsScores extends StatelessWidget {
       children: <Widget>[
         new TableCell(
           verticalAlignment: TableCellVerticalAlignment.middle,
-          child: selected == null ?
+          child: onSelectedChanged == null ?
             new Container(height: 48.0) :
             new Checkbox(
               value: selected[index],
-              onChanged: onSelectedChanged == null ? null : (bool value) {
+              onChanged: !enabled[index] ? null : (bool value) {
                 onSelectedChanged(index, value);
               }
             ),
