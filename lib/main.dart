@@ -143,13 +143,20 @@ class KempsPlay extends StatefulWidget {
   KempsPlayState createState() => new KempsPlayState();
 }
 
+enum KempsCall {
+  kemps,
+  unkemps,
+  coKemps,
+  coUnkemps,
+}
+
 class KempsPlayState extends State<KempsPlay> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   List<bool> _selected;
   Function _onSelectedChanged;
+  KempsCall _call;
   int _caller;
-  List<int> _callees;
 
   List<Player> get players => config.app.players;
 
@@ -177,7 +184,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('KEMPS'),
-                  onPressed: _handleKemps,
+                  onPressed: _canPress(KempsCall.kemps) ? _handleKemps : null,
                 ),
               ),
               new Container(
@@ -185,7 +192,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('UNKEMPS'),
-                  onPressed: _handleUnkemps,
+                  onPressed: _canPress(KempsCall.unkemps) ? _handleUnkemps : null,
                 ),
               ),
             ]
@@ -198,7 +205,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('CO-KEMPS'),
-                  // onPressed: _handleKemps,
+                  onPressed: _canPress(KempsCall.coKemps) ? _handleKemps : null,
                 ),
               ),
               new Container(
@@ -206,7 +213,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('CO-UNKEMPS'),
-                  // onPressed: _handleUnkemps,
+                  onPressed: _canPress(KempsCall.coUnkemps) ? _handleUnkemps : null,
                 ),
               ),
             ]
@@ -216,13 +223,14 @@ class KempsPlayState extends State<KempsPlay> {
     );
   }
 
-  List<int> _getSelectedIndices() {
-    List<int> result = <int>[];
-    for (int i = 0; i < 5; ++i) {
-      if (_selected[i])
-        result.add(i);
-    }
-    return result;
+  bool _canPress(KempsCall callButton) {
+    return (
+      _call == null || (
+        _call == callButton &&
+        _onSelectedChanged == _selectCallees &&
+        _getSelectedIndices().isNotEmpty
+      )
+    );
   }
 
   void _handleKemps() {
@@ -231,6 +239,7 @@ class KempsPlayState extends State<KempsPlay> {
         // Shows the checkboxes.
         _selected = new List<bool>.filled(5, false);
         _onSelectedChanged = _selectCaller;
+        _call = KempsCall.kemps;
       });
     } else if (_onSelectedChanged == _selectCallees) {
       List<int> callees = _getSelectedIndices();
@@ -243,8 +252,41 @@ class KempsPlayState extends State<KempsPlay> {
       setState(() {
         _selected = null;
         _onSelectedChanged = null;
+        _call = null;
+      });
+    } else {
+      assert(false);
+    }
+  }
+
+  void _handleUnkemps() {
+    if (_onSelectedChanged == null) {
+      setState(() {
+        // Shows the checkboxes.
+        _selected = new List<bool>.filled(5, false);
+        _onSelectedChanged = _selectCaller;
+        _call = KempsCall.unkemps;
+      });
+    } else if (_onSelectedChanged == _selectCallees) {
+      List<int> callees = _getSelectedIndices();
+      for (int i in callees)
+        players[i].score -= 1;
+
+      setState(() {
+        _selected = new List<bool>.filled(5, false);
+        _onSelectedChanged = null;
+        _call = null;
       });
     }
+  }
+
+  List<int> _getSelectedIndices() {
+    List<int> result = <int>[];
+    for (int i = 0; i < 5; ++i) {
+      if (_selected[i])
+        result.add(i);
+    }
+    return result;
   }
 
   void _selectCaller(int index, bool value) {
@@ -259,16 +301,6 @@ class KempsPlayState extends State<KempsPlay> {
   void _selectCallees(int index, bool value) {
     setState(() {
       _selected[index] = value;
-    });
-  }
-
-  void _handleUnkemps() {
-    for (int i = 0; i < 5; ++i) {
-      if (_selected[i])
-        players[i].score--;
-    }
-    setState(() {
-      _selected = new List<bool>.filled(5, false);
     });
   }
 }
