@@ -165,7 +165,7 @@ class KempsPlayState extends State<KempsPlay> {
   @override
   void initState() {
     super.initState();
-    resetCall();
+    _resetCall();
   }
 
   @override
