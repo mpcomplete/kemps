@@ -198,58 +198,21 @@ class KempsPlayState extends State<KempsPlay> {
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              new Container(
-                padding: const EdgeInsets.all(20.0),
-                alignment: const FractionalOffset(0.5, 0.5),
-                child: new RaisedButton(
-                  child: new Text('KEMPS'),
-                  onPressed: _canPress(KempsCall.kemps) ? _handleKemps : null,
-                ),
-              ),
-              new Container(
-                padding: const EdgeInsets.all(20.0),
-                alignment: const FractionalOffset(0.5, 0.5),
-                child: new RaisedButton(
-                  child: new Text('UNKEMPS'),
-                  onPressed: _canPress(KempsCall.unkemps) ? _handleUnkemps : null,
-                ),
-              ),
+              _makeButton('KEMPS', _canPress(KempsCall.kemps) ? _handleKemps : null),
+              _makeButton('UNKEMPS', _canPress(KempsCall.unkemps) ? _handleUnkemps : null),
             ]
           ),
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              new Container(
-                padding: const EdgeInsets.all(20.0),
-                alignment: const FractionalOffset(0.5, 0.5),
-                child: new RaisedButton(
-                  child: new Text('CO-KEMPS'),
-                  onPressed: _canPress(KempsCall.coKemps) ? _handleCoKemps : null,
-                ),
-              ),
-              new Container(
-                padding: const EdgeInsets.all(20.0),
-                alignment: const FractionalOffset(0.5, 0.5),
-                child: new RaisedButton(
-                  child: new Text('CO-UNKEMPS'),
-                  onPressed: _canPress(KempsCall.coUnkemps) ? _handleCoUnkemps : null,
-                ),
-              ),
+              _makeButton('CO-KEMPS', _canPress(KempsCall.coKemps) ? _handleCoKemps : null),
+              _makeButton('CO-UNKEMPS', _canPress(KempsCall.coUnkemps) ? _handleCoUnkemps : null),
             ]
           ),
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              _call == null ?
-                new Container() :
-                new Container(
-                  padding: const EdgeInsets.all(20.0),
-                  alignment: const FractionalOffset(0.5, 0.5),
-                  child: new RaisedButton(
-                    child: new Text('CANCEL'),
-                    onPressed: _resetCall,
-                  ),
-                ),
+              _call == null ? new Container() : _makeButton('CANCEL', _resetCall),
             ]
           ),
         ]
@@ -257,22 +220,32 @@ class KempsPlayState extends State<KempsPlay> {
     );
   }
 
-  bool _canPress(KempsCall callButton) {
-    return (
-      _call == null || (
-        _call == callButton &&
-        _onSelectedChanged == _selectCallees &&
-        _selectedIndices.length >= 1
-      ) || (
-        _call == callButton &&
-        _call == KempsCall.coKemps &&
-        _selectedIndices.length >= 2
-      ) || (
-        _call == callButton &&
-        _call == KempsCall.coUnkemps &&
-        _selectedIndices.length == 1
-      )
+  Widget _makeButton(String text, Function onPressed) {
+    return new Container(
+      padding: const EdgeInsets.all(20.0),
+      alignment: const FractionalOffset(0.5, 0.5),
+      child: new RaisedButton(
+        child: new Text(text),
+        onPressed: onPressed
+      ),
     );
+  }
+
+  bool _canPress(KempsCall callButton) {
+    if (_call == null)
+      return true;
+    if (_call != callButton)
+      return false;
+    switch (_call) {
+      case KempsCall.kemps:
+      case KempsCall.unkemps:
+        return _onSelectedChanged == _selectCallees && _selectedIndices.length >= 2;
+      case KempsCall.coKemps:
+        return _selectedIndices.length >= 2;
+      case KempsCall.coUnkemps:
+        return _selectedIndices.length == 1;
+    }
+    return false;
   }
 
   void _handleKemps() {
@@ -292,7 +265,8 @@ class KempsPlayState extends State<KempsPlay> {
         players[i].addProfitsWith(_caller);
         players[_caller].addProfitsWith(i);
       }
-      _showInSnackBar('${_getNames([_caller])} kemps ${_getNames(callees)}!');
+      String maybeDouble = (callees.length == 1) ? '' : 'double ';
+      _showInSnackBar('${_getNames([_caller])} ${maybeDouble}kemps ${_getNames(callees)}!');
       _resetCall();
     } else {
       assert(false);
@@ -312,7 +286,8 @@ class KempsPlayState extends State<KempsPlay> {
       List<int> callees = _callees;
       for (int i in callees)
         players[i].score -= 1;
-      _showInSnackBar('${_getNames([_caller])} unkemps ${_getNames(callees)}!');
+      String maybeDouble = (callees.length == 1) ? '' : 'double ';
+      _showInSnackBar('${_getNames([_caller])} ${maybeDouble}unkemps ${_getNames(callees)}!');
       _resetCall();
     }
   }
@@ -337,9 +312,9 @@ class KempsPlayState extends State<KempsPlay> {
         }
       }
       if (callers.length == 2) {
-        _showInSnackBar('Co-Kemps! ${_getNames(callers)}');
+        _showInSnackBar('Co-Kemps! ${_getNames(callers)}!');
       } else {
-        _showInSnackBar('TRINITY KEMPS! ${_getNames(callers)}');
+        _showInSnackBar('TRINITY KEMPS!!! ${_getNames(callers)}!');
       }
       _resetCall();
     } else {
@@ -448,7 +423,8 @@ class KempsPlayState extends State<KempsPlay> {
 
   void _showInSnackBar(String value) {
     _scaffoldKey.currentState.showSnackBar(new SnackBar(
-      content: new Text(value)
+      content: new Text(value),
+      duration: const Duration(milliseconds: 5000)
     ));
   }
 }
