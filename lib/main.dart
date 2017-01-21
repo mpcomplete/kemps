@@ -157,6 +157,7 @@ class KempsPlayState extends State<KempsPlay> {
   Function _onSelectedChanged;
   KempsCall _call;
   int _caller;
+  String _message;
 
   List<Player> get players => config.app.players;
 
@@ -218,6 +219,15 @@ class KempsPlayState extends State<KempsPlay> {
               ),
             ]
           ),
+          new Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              new Container(
+                padding: const EdgeInsets.all(20.0),
+                child: new Text(_message ?? ''),
+              )
+            ]
+          ),
         ]
       )
     );
@@ -240,6 +250,7 @@ class KempsPlayState extends State<KempsPlay> {
         _selected = new List<bool>.filled(5, false);
         _onSelectedChanged = _selectCaller;
         _call = KempsCall.kemps;
+        _message = 'Select the player who called Kemps';
       });
     } else if (_onSelectedChanged == _selectCallees) {
       List<int> callees = _getSelectedIndices();
@@ -249,11 +260,7 @@ class KempsPlayState extends State<KempsPlay> {
         players[i].addProfitsWith(_caller);
         players[_caller].addProfitsWith(i);
       }
-      setState(() {
-        _selected = null;
-        _onSelectedChanged = null;
-        _call = null;
-      });
+      _resetCall();
     } else {
       assert(false);
     }
@@ -271,13 +278,17 @@ class KempsPlayState extends State<KempsPlay> {
       List<int> callees = _getSelectedIndices();
       for (int i in callees)
         players[i].score -= 1;
-
-      setState(() {
-        _selected = new List<bool>.filled(5, false);
-        _onSelectedChanged = null;
-        _call = null;
-      });
+      _resetCall();
     }
+  }
+
+  void _resetCall() {
+    setState(() {
+      _selected = null;
+      _onSelectedChanged = null;
+      _call = null;
+      _message = null;
+    });
   }
 
   List<int> _getSelectedIndices() {
@@ -295,6 +306,7 @@ class KempsPlayState extends State<KempsPlay> {
       _selected = new List<bool>.filled(5, false);
       _caller = index;
       _onSelectedChanged = _selectCallees;
+      _message = 'Select the callees';
     });
   }
 
