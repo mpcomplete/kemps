@@ -318,9 +318,12 @@ class KempsScores extends StatelessWidget {
       child: new Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 40.0),
         child: new Table(
-          // columnWidths: <int, TableColumnWidth>{
-          //   0: const FixedColumnWidth(64.0)
-          // },
+          columnWidths: <int, TableColumnWidth>{
+            0: const FlexColumnWidth(1.0),
+            1: const FlexColumnWidth(2.0),
+            2: const FlexColumnWidth(1.0),
+            3: const FlexColumnWidth(3.0)
+          },
           children: <TableRow>[
             _buildRow(0),
             _buildRow(1),
