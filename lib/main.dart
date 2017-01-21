@@ -105,7 +105,7 @@ class KempsNamesState extends State<KempsNames> {
     );
   }
 
-  void showInSnackBar(String value) {
+  void _showInSnackBar(String value) {
     _scaffoldKey.currentState.showSnackBar(new SnackBar(
       content: new Text(value)
     ));
@@ -115,7 +115,7 @@ class KempsNamesState extends State<KempsNames> {
     FormState form = _formKey.currentState;
     if (!form.validate()) {
       _autovalidate = true;
-      showInSnackBar('Please fix the errors in red before submitting.');
+      _showInSnackBar('Please give every player a name.');
     } else {
       form.save();
       config.app.initPlayers(_players);
@@ -262,7 +262,7 @@ class KempsPlayState extends State<KempsPlay> {
       _call == null || (
         _call == callButton &&
         _onSelectedChanged == _selectCallees &&
-        _getSelectedIndices().length > 1
+        _callees.isNotEmpty
       )
     );
   }
@@ -278,13 +278,14 @@ class KempsPlayState extends State<KempsPlay> {
         _message = 'Select the player who called Kemps';
       });
     } else if (_onSelectedChanged == _selectCallees) {
-      List<int> callees = _getSelectedIndices();
+      List<int> callees = _callees;
       players[_caller].score += callees.length == 1 ? 1 : 2;
       for (int i in callees) {
         players[i].score += 1;
         players[i].addProfitsWith(_caller);
         players[_caller].addProfitsWith(i);
       }
+      _showInSnackBar('${_getNames([_caller])} kemps ${_getNames(callees)}!');
       _resetCall();
     } else {
       assert(false);
@@ -302,9 +303,10 @@ class KempsPlayState extends State<KempsPlay> {
         _message = 'Select the player who called Unkemps';
       });
     } else if (_onSelectedChanged == _selectCallees) {
-      List<int> callees = _getSelectedIndices();
+      List<int> callees = _callees;
       for (int i in callees)
         players[i].score -= 1;
+      _showInSnackBar('${_getNames([_caller])} unkemps ${_getNames(callees)}!');
       _resetCall();
     }
   }
@@ -319,12 +321,28 @@ class KempsPlayState extends State<KempsPlay> {
     });
   }
 
-  List<int> _getSelectedIndices() {
+  List<int> get _callees {
     List<int> result = <int>[];
     for (int i = 0; i < 5; ++i) {
-      if (_selected[i])
+      if (_selected[i] && i != _caller)
         result.add(i);
     }
+    return result;
+  }
+
+  String _getNames(List<int> indices) {
+    String result = players[indices[0]].name;
+    for (int i = 1; i < indices.length; ++i)
+      result += ' and ${players[indices[i]].name}';
+    return result;
+  }
+
+  // Returns 5 bools with `true` at each given index.
+  // _makeBools([1, 2]) returns [false, true, true, false, false]
+  List<bool> _makeBools(List<int> trueValues) {
+    List<bool> result = new List<bool>.filled(5, false);
+    for (int i in trueValues)
+      result[i] = true;
     return result;
   }
 
@@ -348,19 +366,16 @@ class KempsPlayState extends State<KempsPlay> {
     });
   }
 
-  // Returns 5 bools with `true` at each given index.
-  // _makeBools([1, 2]) returns [false, true, true, false, false]
-  List<bool> _makeBools(List<int> trueValues) {
-    List<bool> result = new List<bool>.filled(5, false);
-    for (int i in trueValues)
-      result[i] = true;
-    return result;
-  }
-
   void _selectCallees(int index, bool value) {
     setState(() {
       _selected[index] = value;
     });
+  }
+
+  void _showInSnackBar(String value) {
+    _scaffoldKey.currentState.showSnackBar(new SnackBar(
+      content: new Text(value)
+    ));
   }
 }
 
