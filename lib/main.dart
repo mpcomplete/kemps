@@ -232,7 +232,7 @@ class KempsPlayState extends State<KempsPlay> {
                 alignment: const FractionalOffset(0.5, 0.5),
                 child: new RaisedButton(
                   child: new Text('CO-UNKEMPS'),
-                  onPressed: _canPress(KempsCall.coUnkemps) ? _handleUnkemps : null,
+                  onPressed: _canPress(KempsCall.coUnkemps) ? _handleCoUnkemps : null,
                 ),
               ),
             ]
@@ -267,6 +267,10 @@ class KempsPlayState extends State<KempsPlay> {
         _call == callButton &&
         _call == KempsCall.coKemps &&
         _selectedIndices.length >= 2
+      ) || (
+        _call == callButton &&
+        _call == KempsCall.coUnkemps &&
+        _selectedIndices.length == 1
       )
     );
   }
@@ -274,7 +278,6 @@ class KempsPlayState extends State<KempsPlay> {
   void _handleKemps() {
     if (_onSelectedChanged == null) {
       setState(() {
-        // Shows the checkboxes.
         _selected = new List<bool>.filled(5, false);
         _enabled = new List<bool>.filled(5, true);
         _onSelectedChanged = _selectCaller;
@@ -299,7 +302,6 @@ class KempsPlayState extends State<KempsPlay> {
   void _handleUnkemps() {
     if (_onSelectedChanged == null) {
       setState(() {
-        // Shows the checkboxes.
         _selected = new List<bool>.filled(5, false);
         _enabled = new List<bool>.filled(5, true);
         _onSelectedChanged = _selectCaller;
@@ -318,7 +320,6 @@ class KempsPlayState extends State<KempsPlay> {
   void _handleCoKemps() {
     if (_onSelectedChanged == null) {
       setState(() {
-        // Shows the checkboxes.
         _selected = new List<bool>.filled(5, false);
         _enabled = new List<bool>.filled(5, true);
         _onSelectedChanged = _selectCaller;
@@ -343,6 +344,22 @@ class KempsPlayState extends State<KempsPlay> {
       _resetCall();
     } else {
       assert(false);
+    }
+  }
+
+    void _handleCoUnkemps() {
+    if (_onSelectedChanged == null) {
+      setState(() {
+        _selected = new List<bool>.filled(5, false);
+        _enabled = new List<bool>.filled(5, true);
+        _onSelectedChanged = _selectCaller;
+        _call = KempsCall.coUnkemps;
+        _message = 'Select the player who was Co-Unkempsed';
+      });
+    } else if (_onSelectedChanged == _selectCaller) {
+      players[_caller].score -= 2;
+      _showInSnackBar('${_getNames([enemy1(_caller), enemy2(_caller)])} co-unkemps ${_getNames([_caller])}!');
+      _resetCall();
     }
   }
 
@@ -412,10 +429,12 @@ class KempsPlayState extends State<KempsPlay> {
           }
           break;
         case KempsCall.unkemps:
-        case KempsCall.coUnkemps:
           _enabled = _makeBools(<int>[enemy1(index), enemy2(index)]);
           _onSelectedChanged = _selectCallees;
           _message = 'Select the callee(s)';
+          break;
+        case KempsCall.coUnkemps:
+          _enabled = new List<bool>.filled(5, false);
           break;
       }
     });
