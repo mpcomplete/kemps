@@ -1,4 +1,20 @@
+import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+
+const String _kSettingsFile = 'settings.json';
+
+//     1
+//         2
+// 0
+//         3
+//     4
+int enemy1(int playerIndex) => (playerIndex + 1) % 5;
+int friend1(int playerIndex) => (playerIndex + 2) % 5;
+int friend2(int playerIndex) => (playerIndex + 3) % 5;
+int enemy2(int playerIndex) => (playerIndex + 4) % 5;
 
 class Player {
   Player(this.name);
@@ -13,15 +29,34 @@ class Player {
   }
 }
 
-//     1
-//         2
-// 0
-//         3
-//     4
-int enemy1(int playerIndex) => (playerIndex + 1) % 5;
-int friend1(int playerIndex) => (playerIndex + 2) % 5;
-int friend2(int playerIndex) => (playerIndex + 3) % 5;
-int enemy2(int playerIndex) => (playerIndex + 4) % 5;
+class Settings {
+  static Map<String, dynamic> _json;
+
+  static dynamic get(String key) => _json[key];
+
+  static Future<Null> load() async {
+    try {
+      File file = await _getFile();
+      String contents = await file.readAsString();
+      _json = JSON.decode(contents);
+      print('Settings loaded: $_json');
+    } on FileSystemException {
+    }
+  }
+
+  static Future<Null> save(Map<String, dynamic> json) async {
+    _json = json;
+    File file = await _getFile();
+    String contents = JSON.encode(json);
+    print('Settings saved: $json');
+    await file.writeAsBytes(UTF8.encode(contents), mode: FileMode.WRITE);
+  }
+
+  static Future<File> _getFile() async {
+    String dir = (await PathProvider.getApplicationDocumentsDirectory()).path;
+    return new File('$dir/$_kSettingsFile');
+  }
+}
 
 class KempsApp extends StatefulWidget {
   KempsApp({ Key key }) : super(key: key);
@@ -46,12 +81,55 @@ class KempsAppState extends State<KempsApp> {
       title: 'Kemps',
       // theme: theme,
       routes: <String, WidgetBuilder>{
-         '/':      (BuildContext context) => new KempsNames(this),
-        //  '/names': (BuildContext context) => new KempsNames()
-         '/play':  (BuildContext context) => new KempsPlay(this)
+         '/':      (BuildContext context) => new KempsStart(this),
+         '/names': (BuildContext context) => new KempsNames(this),
+         '/play':  (BuildContext context) => new KempsPlay(this),
         //  '/scores':  (BuildContext context) => new KempsAppScores()
       },
       // onGenerateRoute: _getRoute,
+    );
+  }
+}
+
+class KempsStart extends StatefulWidget {
+  KempsStart(this.app);
+
+  KempsAppState app;
+
+  @override
+  KempsStartState createState() => new KempsStartState();
+}
+
+class KempsStartState extends State<KempsStart> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
+
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Settings.load().then((_) {
+      setState(() {
+        _ready = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return new Scaffold(
+      // key: _scaffoldKey,
+      appBar: new AppBar(
+        title: new Text('Kemps 5\nIt delves into the deepest emotions')
+      ),
+      body: new Container(
+        padding: const EdgeInsets.all(20.0),
+        alignment: const FractionalOffset(0.5, 0.5),
+        child: new RaisedButton(
+          child: new Text('START'),
+          onPressed: () { Navigator.pushNamed(context, '/names'); },
+        ),
+      )
     );
   }
 }
@@ -69,8 +147,14 @@ class KempsNamesState extends State<KempsNames> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   GlobalKey<FormState> _formKey = new GlobalKey<FormState>();
-  List<String> _players = new List<String>(5);
+  List<String> _players;
   bool _autovalidate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _players = Settings.get('players') ?? new List<String>.filled(5, '');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +166,6 @@ class KempsNamesState extends State<KempsNames> {
       body: new Form(
         key: _formKey,
         autovalidate: _autovalidate,
-        // onWillPop: _warnUserAboutInvalidData,
         child: new Block(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           children: <Widget>[
@@ -119,14 +202,17 @@ class KempsNamesState extends State<KempsNames> {
     } else {
       form.save();
       config.app.initPlayers(_players);
-      Navigator.popAndPushNamed(context, '/play');
+      Settings.save(<String, dynamic>{
+        'players': _players
+      });
+      Navigator.pushNamed(context, '/play');
     }
   }
 
   Widget _makeInput(int n) {
     return new TextField(
       labelText: 'Player $n',
-      initialValue: new InputValue(text: 'Player $n'), // @@@MP
+      initialValue: new InputValue(text: _players[n-1]), // @@@MP
       isDense: true,
       onSaved: (InputValue val) { _players[n-1] = val.text; },
       validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
