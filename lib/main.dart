@@ -83,20 +83,6 @@ class KempsApp extends StatefulWidget {
 class KempsAppState extends State<KempsApp> {
   List<Player> _players;
 
-  List<Player> get players => _players;
-  void initPlayers(List<String> playerNames) {
-    _players = new List<Player>.generate(5, (int index) {
-      return new Player(playerNames[index]);
-    });
-    save();
-  }
-
-  void save() {
-    Settings.save(<String, dynamic>{
-      'players': players.map((Player player) => player.toJson()).toList()
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -123,18 +109,27 @@ class KempsAppState extends State<KempsApp> {
       // onGenerateRoute: _getRoute,
     );
   }
+
+  List<Player> get players => _players;
+  void initPlayers(List<String> playerNames) {
+    _players = new List<Player>.generate(5, (int index) {
+      return new Player(playerNames[index]);
+    });
+    save();
+  }
+
+  void save() {
+    Settings.save(<String, dynamic>{
+      'players': players.map((Player player) => player.toJson()).toList()
+    });
+  }
 }
 
-class KempsStart extends StatefulWidget {
+class KempsStart extends StatelessWidget {
   KempsStart(this.app);
 
   KempsAppState app;
 
-  @override
-  KempsStartState createState() => new KempsStartState();
-}
-
-class KempsStartState extends State<KempsStart> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   @override
@@ -225,7 +220,7 @@ class KempsNamesState extends State<KempsNames> {
     } else {
       form.save();
       config.app.initPlayers(_players);
-      Navigator.pushNamed(context, '/play');
+      Navigator.popAndPushNamed(context, '/play');
     }
   }
 
