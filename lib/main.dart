@@ -276,7 +276,7 @@ class KempsPlayState extends State<KempsPlay> {
             children: <Widget>[
               new Container(
                 height: 48.0,
-                padding: const EdgeInsets.only(bottom: 20.0),
+                padding: const EdgeInsets.only(top: 10.0, bottom: 20.0),
                 child: new Text(_message ?? ''),
               )
             ]
@@ -523,22 +523,25 @@ class KempsScores extends StatelessWidget {
   }
 
   final KempsAppState app;
+  // If selected[i] is true, the checkbox for row i will be checked.
   final List<bool> selected;
+  // If enabled[i] is true, the checkbox for row i will be enabled.
   final List<bool> enabled;
+  // If null, don't display checkboxes.
   final Function onSelectedChanged;
 
   @override
   Widget build(BuildContext context) {
     return new Material(
       child: new Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 40.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
         child: new Table(
           columnWidths: <int, TableColumnWidth>{
-            0: const FlexColumnWidth(1.0),
+            0: const FlexColumnWidth(3.0),
             1: const FlexColumnWidth(2.0),
-            2: const FlexColumnWidth(1.0),
-            3: const FlexColumnWidth(3.0)
+            2: const FlexColumnWidth(3.0)
           },
+          border: new TableBorder.all(color: Colors.black26),
           children: <TableRow>[
             _buildRow(0),
             _buildRow(1),
@@ -551,42 +554,82 @@ class KempsScores extends StatelessWidget {
     );
   }
 
+  static const EdgeInsets _kCellPadding = const EdgeInsets.symmetric(horizontal: 8.0);
+
   TableRow _buildRow(int index) {
     return new TableRow(
       children: <Widget>[
         new TableCell(
           verticalAlignment: TableCellVerticalAlignment.middle,
-          child: onSelectedChanged == null ?
-            new Container(height: 48.0) :
-            new Checkbox(
-              value: selected[index],
-              onChanged: !enabled[index] ? null : (bool value) {
-                onSelectedChanged(index, value);
-              }
-            ),
+          child: new GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: !enabled[index] ? null : () => onSelectedChanged(index, !selected[index]),
+            child: new Row(
+              children: <Widget>[
+                onSelectedChanged == null ?
+                  new Container(height: 48.0, width: 48.0) :
+                  new Checkbox(
+                    value: selected[index],
+                    onChanged: !enabled[index] ? null : (bool value) => onSelectedChanged(index, value)
+                  ),
+                  new Text(app.players[index].name),
+              ]
+            )
+          )
         ),
         new TableCell(
           verticalAlignment: TableCellVerticalAlignment.middle,
-          child: new Text(app.players[index].name)
-        ),
-        new TableCell(
-          verticalAlignment: TableCellVerticalAlignment.middle,
-          child: new Text(app.players[index].score.toString())
+          child: new Container(
+            padding: _kCellPadding,
+            child: new Text(_getScoreString(app.players[index].score))
+          )
         ),
         new TableCell(
           verticalAlignment: TableCellVerticalAlignment.middle,
           child: new Table(
+            columnWidths: <int, TableColumnWidth>{
+              0: const FlexColumnWidth(2.0),
+              1: const FlexColumnWidth(1.0),
+            },
             children: <TableRow>[
               new TableRow(
                 children: <Widget>[
-                  new TableCell(child: new Text(app.players[friend1(index)].name)),
-                  new TableCell(child: new Text(app.players[index].getProfitsWith(friend1(index)).toString())),
+                  new TableCell(
+                    child: new Container(
+                      padding: _kCellPadding,
+                      child: new Text(app.players[friend1(index)].name)
+                    )
+                  ),
+                  new TableCell(
+                    child: new Container(
+                      padding: _kCellPadding,
+                      alignment: FractionalOffset.centerRight,
+                      child: new Text(app.players[index].getProfitsWith(friend1(index)).toString()),
+                    )
+                  ),
                 ]
               ),
               new TableRow(
                 children: <Widget>[
-                  new TableCell(child: new Text(app.players[friend2(index)].name)),
-                  new TableCell(child: new Text(app.players[index].getProfitsWith(friend2(index)).toString())),
+                  new TableCell(child: new Container(height: 6.0)),
+                  new TableCell(child: new Container(height: 6.0)),
+                ]
+              ),
+              new TableRow(
+                children: <Widget>[
+                  new TableCell(
+                    child: new Container(
+                      padding: _kCellPadding,
+                      child: new Text(app.players[friend2(index)].name)
+                    )
+                  ),
+                  new TableCell(
+                    child: new Container(
+                      padding: _kCellPadding,
+                      alignment: FractionalOffset.centerRight,
+                      child: new Text(app.players[index].getProfitsWith(friend2(index)).toString()),
+                    )
+                  ),
                 ]
               ),
             ]
@@ -594,6 +637,11 @@ class KempsScores extends StatelessWidget {
         ),
       ]
     );
+  }
+
+  String _getScoreString(int score) {
+    String negative = score < 0 ? '-' : '';
+    return negative + 'KEMPS!!!!!'.substring(0, score.abs().clamp(0, 10));
   }
 }
 
