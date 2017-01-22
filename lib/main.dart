@@ -86,13 +86,9 @@ class KempsAppState extends State<KempsApp> {
   @override
   void initState() {
     super.initState();
-    Settings.load().then((_) {
-      setState(() {
-        List json = Settings.get('players');
-        if (json != null)
-          _players = json.map((Map player) => new Player.fromJson(player)).toList();
-      });
-    });
+    List json = Settings.get('players');
+    if (json != null)
+      _players = json.map((Map player) => new Player.fromJson(player)).toList();
   }
 
   @override
@@ -100,6 +96,7 @@ class KempsAppState extends State<KempsApp> {
     return new MaterialApp(
       title: 'Kemps',
       // theme: theme,
+      // initialRoute: isGameInProgress ? '/play' : '/',
       routes: <String, WidgetBuilder>{
          '/':      (BuildContext context) => new KempsStart(this),
          '/names': (BuildContext context) => new KempsNames(this),
@@ -139,13 +136,26 @@ class KempsStart extends StatelessWidget {
       appBar: new AppBar(
         title: new Text('Kemps 5\nIt delves into the deepest emotions')
       ),
-      body: new Container(
-        padding: const EdgeInsets.all(20.0),
-        alignment: const FractionalOffset(0.5, 0.5),
-        child: new RaisedButton(
-          child: new Text('START'),
-          onPressed: () { Navigator.pushNamed(context, '/names'); },
-        ),
+      body: new Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          new Container(
+            padding: const EdgeInsets.all(20.0),
+            alignment: const FractionalOffset(0.5, 0.5),
+            child: new RaisedButton(
+              child: new Text('START'),
+              onPressed: () { Navigator.pushNamed(context, '/names'); },
+            )
+          ),
+          new Container(
+            padding: const EdgeInsets.all(20.0),
+            alignment: const FractionalOffset(0.5, 0.5),
+            child: app.players != null ? new RaisedButton(
+              child: new Text('CONTINUE'),
+              onPressed: () { Navigator.pushNamed(context, '/play'); },
+            ) : null
+          ),
+        ]
       )
     );
   }
@@ -662,6 +672,7 @@ class KempsScores extends StatelessWidget {
 }
 
 
-void main() {
+Future<Null> main() async {
+  await Settings.load();
   runApp(new KempsApp());
 }
