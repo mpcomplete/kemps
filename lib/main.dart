@@ -21,11 +21,25 @@ class Player {
 
   String name;
   int score = 0;
-  Map<int, int> profitSharing = <int, int>{};
+  List<int> profitSharing = new List<int>.filled(5, 0);
 
-  int getProfitsWith(int index) => profitSharing[index] ?? 0;
+  int getProfitsWith(int index) => profitSharing[index];
   void addProfitsWith(int index) {
-    profitSharing[index] = getProfitsWith(index) + 1;
+    profitSharing[index] += 1;
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'name': name,
+      'score': score,
+      'profitSharing': profitSharing,
+    };
+  }
+
+  Player.fromJson(Map<String, dynamic> json) {
+    name = json['name'];
+    score = json['score'];
+    profitSharing = json['profitSharing'];
   }
 }
 
@@ -41,6 +55,7 @@ class Settings {
       _json = JSON.decode(contents);
       print('Settings loaded: $_json');
     } on FileSystemException {
+      _json = {};
     }
   }
 
@@ -73,6 +88,25 @@ class KempsAppState extends State<KempsApp> {
     _players = new List<Player>.generate(5, (int index) {
       return new Player(playerNames[index]);
     });
+    save();
+  }
+
+  void save() {
+    Settings.save(<String, dynamic>{
+      'players': players.map((Player player) => player.toJson()).toList()
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    Settings.load().then((_) {
+      setState(() {
+        List json = Settings.get('players');
+        if (json != null)
+          _players = json.map((Map player) => new Player.fromJson(player)).toList();
+      });
+    });
   }
 
   @override
@@ -102,18 +136,6 @@ class KempsStart extends StatefulWidget {
 
 class KempsStartState extends State<KempsStart> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
-
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    Settings.load().then((_) {
-      setState(() {
-        _ready = true;
-      });
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,13 +169,14 @@ class KempsNamesState extends State<KempsNames> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   GlobalKey<FormState> _formKey = new GlobalKey<FormState>();
-  List<String> _players;
+  List<String> _players = new List<String>.filled(5, '');
   bool _autovalidate = false;
 
   @override
   void initState() {
     super.initState();
-    _players = Settings.get('players') ?? new List<String>.filled(5, '');
+    if (config.app.players != null)
+      _players = config.app.players.map((Player p) => p.name).toList();
   }
 
   @override
@@ -202,9 +225,6 @@ class KempsNamesState extends State<KempsNames> {
     } else {
       form.save();
       config.app.initPlayers(_players);
-      Settings.save(<String, dynamic>{
-        'players': _players
-      });
       Navigator.pushNamed(context, '/play');
     }
   }
@@ -432,6 +452,7 @@ class KempsPlayState extends State<KempsPlay> {
       _call = null;
       _caller = null;
       _message = null;
+      config.app.save();
     });
   }
 
@@ -537,9 +558,9 @@ class KempsScores extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
         child: new Table(
           columnWidths: <int, TableColumnWidth>{
-            0: const FlexColumnWidth(3.0),
-            1: const FlexColumnWidth(2.0),
-            2: const FlexColumnWidth(3.0)
+            0: const FlexColumnWidth(4.0),
+            1: const FlexColumnWidth(3.0),
+            2: const FlexColumnWidth(4.0)
           },
           border: new TableBorder.all(color: Colors.black26),
           children: <TableRow>[
