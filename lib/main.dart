@@ -46,7 +46,21 @@ class Player {
 }
 
 class Game {
+  Game(this.players);
+
   List<Player> players;
+
+  List<Player> get winners => players.where((Player p) => p.score >= 5).toList();
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'players': players.map((Player player) => player.toJson()).toList(),
+    };
+  }
+
+  Game.fromJson(Map<String, dynamic> json) {
+    players = json['players'].map((Map player) => new Player.fromJson(player)).toList();
+  }
 }
 
 class Settings {
@@ -87,14 +101,12 @@ class KempsApp extends StatefulWidget {
 }
 
 class KempsAppState extends State<KempsApp> {
-  List<Player> _players;
+  List<Game> _games = <Game>[];
 
   @override
   void initState() {
     super.initState();
-    List json = Settings.get('players');
-    if (json != null)
-      _players = json.map((Map player) => new Player.fromJson(player)).toList();
+    load();
   }
 
   @override
@@ -113,17 +125,31 @@ class KempsAppState extends State<KempsApp> {
     );
   }
 
-  List<Player> get players => _players;
-  void initPlayers(List<String> playerNames) {
-    _players = new List<Player>.generate(5, (int index) {
-      return new Player(playerNames[index]);
-    });
+  Game get currentGame => _games.isEmpty ? null : _games.last;
+  List<Player> get players => currentGame?.players;
+
+  void initGame(List<String> playerNames) {
+    _games.add(new Game(
+      new List<Player>.generate(5, (int index) {
+        return new Player(playerNames[index]);
+      })
+    ));
     save();
+  }
+
+  void endGame() {
+    assert(currentGame.winners.isNotEmpty);
+  }
+
+  void load() {
+    List json = Settings.get('games');
+    if (json != null)
+      _games = json.map((Map game) => new Game.fromJson(game)).toList();
   }
 
   void save() {
     Settings.save(<String, dynamic>{
-      'players': players.map((Player player) => player.toJson()).toList()
+      'games': _games.map((Game game) => game.toJson()).toList()
     });
   }
 }
@@ -156,7 +182,7 @@ class KempsStart extends StatelessWidget {
           new Container(
             padding: const EdgeInsets.all(20.0),
             alignment: const FractionalOffset(0.5, 0.5),
-            child: app.players != null ? new RaisedButton(
+            child: app.currentGame != null && app.currentGame.winners.isEmpty ? new RaisedButton(
               child: new Text('CONTINUE'),
               onPressed: () { Navigator.pushNamed(context, '/play'); },
             ) : null
@@ -180,14 +206,14 @@ class KempsNamesState extends State<KempsNames> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   GlobalKey<FormState> _formKey = new GlobalKey<FormState>();
-  List<String> _players = new List<String>.filled(5, '');
+  List<String> _playerNames = new List<String>.filled(5, '');
   bool _autovalidate = false;
 
   @override
   void initState() {
     super.initState();
     if (config.app.players != null)
-      _players = config.app.players.map((Player p) => p.name).toList();
+      _playerNames = config.app.players.map((Player p) => p.name).toList();
   }
 
   @override
@@ -235,7 +261,7 @@ class KempsNamesState extends State<KempsNames> {
       _showInSnackBar('Please give every player a name.');
     } else {
       form.save();
-      config.app.initPlayers(_players);
+      config.app.initGame(_playerNames);
       Navigator.popAndPushNamed(context, '/play');
     }
   }
@@ -243,9 +269,9 @@ class KempsNamesState extends State<KempsNames> {
   Widget _makeInput(int n) {
     return new TextField(
       labelText: 'Player $n',
-      initialValue: new InputValue(text: _players[n-1]), // @@@MP
+      initialValue: new InputValue(text: _playerNames[n-1]),
       isDense: true,
-      onSaved: (InputValue val) { _players[n-1] = val.text; },
+      onSaved: (InputValue val) { _playerNames[n-1] = val.text; },
       validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
     );
   }
@@ -474,21 +500,26 @@ class KempsPlayState extends State<KempsPlay> {
 
   void _checkForWinners() {
     List<Player> winners = players.where((Player p) => p.score >= 5).toList();
-    print('YES $mounted');
     if (winners.isNotEmpty && mounted) {
       showDialog(
         context: context,
         child: new AlertDialog(
-          content: new Text('KEMPS! ${winners.join(" and ")} won!'),
+          title: new Text('KEMPS!'),
+          content: new Text('${winners.join(" and ")} won!'),
           actions: <Widget>[
             new FlatButton(
               child: new Text('YAY'),
-              onPressed: () { Navigator.popAndPushNamed(context, '/names'); }
+              onPressed: _endGame
             ),
           ]
         )
       );
     }
+  }
+
+  void _endGame() {
+    config.app.endGame();
+    Navigator.popAndPushNamed(context, '/names');
   }
 
   List<int> get _selectedIndices {
