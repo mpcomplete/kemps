@@ -28,6 +28,8 @@ class Player {
     profitSharing[index] += 1;
   }
 
+  String toString() => name;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'name': name,
@@ -41,6 +43,10 @@ class Player {
     score = json['score'];
     profitSharing = json['profitSharing'];
   }
+}
+
+class Game {
+  List<Player> players;
 }
 
 class Settings {
@@ -132,7 +138,7 @@ class KempsStart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
-      // key: _scaffoldKey,
+      key: _scaffoldKey,
       appBar: new AppBar(
         title: new Text('Kemps 5\nIt delves into the deepest emotions')
       ),
@@ -378,7 +384,7 @@ class KempsPlayState extends State<KempsPlay> {
       }
       String maybeDouble = (callees.length == 1) ? '' : 'double ';
       _showInSnackBar('${_getNames([_caller])} ${maybeDouble}kemps ${_getNames(callees)}!');
-      _resetCall();
+      _finishCall();
     } else {
       assert(false);
     }
@@ -399,7 +405,7 @@ class KempsPlayState extends State<KempsPlay> {
         players[i].score -= 1;
       String maybeDouble = (callees.length == 1) ? '' : 'double ';
       _showInSnackBar('${_getNames([_caller])} ${maybeDouble}unkemps ${_getNames(callees)}!');
-      _resetCall();
+      _finishCall();
     }
   }
 
@@ -427,7 +433,7 @@ class KempsPlayState extends State<KempsPlay> {
       } else {
         _showInSnackBar('TRINITY KEMPS!!! ${_getNames(callers)}!');
       }
-      _resetCall();
+      _finishCall();
     } else {
       assert(false);
     }
@@ -445,7 +451,7 @@ class KempsPlayState extends State<KempsPlay> {
     } else if (_onSelectedChanged == _selectCaller) {
       players[_caller].score -= 2;
       _showInSnackBar('${_getNames([enemy1(_caller), enemy2(_caller)])} co-unkemps ${_getNames([_caller])}!');
-      _resetCall();
+      _finishCall();
     }
   }
 
@@ -457,8 +463,32 @@ class KempsPlayState extends State<KempsPlay> {
       _call = null;
       _caller = null;
       _message = null;
-      config.app.save();
     });
+  }
+
+  void _finishCall() {
+    _resetCall();
+    _checkForWinners();
+    config.app.save();
+  }
+
+  void _checkForWinners() {
+    List<Player> winners = players.where((Player p) => p.score >= 5).toList();
+    print('YES $mounted');
+    if (winners.isNotEmpty && mounted) {
+      showDialog(
+        context: context,
+        child: new AlertDialog(
+          content: new Text('KEMPS! ${winners.join(" and ")} won!'),
+          actions: <Widget>[
+            new FlatButton(
+              child: new Text('YAY'),
+              onPressed: () { Navigator.popAndPushNamed(context, '/names'); }
+            ),
+          ]
+        )
+      );
+    }
   }
 
   List<int> get _selectedIndices {
