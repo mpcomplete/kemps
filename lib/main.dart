@@ -1,3 +1,7 @@
+// TODO: game history
+// TODO: post-game score screen
+// TODO: shuffle seats auto/manual
+
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
