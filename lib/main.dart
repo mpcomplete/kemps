@@ -175,22 +175,10 @@ class KempsStart extends StatelessWidget {
       body: new Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          new Container(
-            padding: const EdgeInsets.all(20.0),
-            alignment: const FractionalOffset(0.5, 0.5),
-            child: new RaisedButton(
-              child: new Text('START'),
-              onPressed: () { Navigator.pushNamed(context, '/names'); },
-            )
-          ),
-          new Container(
-            padding: const EdgeInsets.all(20.0),
-            alignment: const FractionalOffset(0.5, 0.5),
-            child: app.currentGame != null && app.currentGame.winners.isEmpty ? new RaisedButton(
-              child: new Text('CONTINUE'),
-              onPressed: () { Navigator.pushNamed(context, '/play'); },
-            ) : null
-          ),
+          _makeButton('START', () { Navigator.pushNamed(context, '/names'); }),
+          app.currentGame != null && app.currentGame.winners.isEmpty ?
+            _makeButton('CONTINUE', () { Navigator.pushNamed(context, '/play'); }) :
+            new Container()
         ]
       )
     );
@@ -238,14 +226,7 @@ class KempsNamesState extends State<KempsNames> {
             _makeInput(3),
             _makeInput(4),
             _makeInput(5),
-            new Container(
-              padding: const EdgeInsets.all(20.0),
-              alignment: const FractionalOffset(0.5, 0.5),
-              child: new RaisedButton(
-                child: new Text('SAVE'),
-                onPressed: _handleSubmitted,
-              ),
-            )
+            _makeButton('SAVE', _handleSubmitted),
           ]
         )
       )
@@ -364,17 +345,6 @@ class KempsPlayState extends State<KempsPlay> {
           ),
         ]
       )
-    );
-  }
-
-  Widget _makeButton(String text, Function onPressed) {
-    return new Container(
-      padding: const EdgeInsets.all(20.0),
-      alignment: const FractionalOffset(0.5, 0.5),
-      child: new RaisedButton(
-        child: new Text(text),
-        onPressed: onPressed
-      ),
     );
   }
 
@@ -736,6 +706,16 @@ class KempsScores extends StatelessWidget {
   }
 }
 
+Widget _makeButton(String text, Function onPressed) {
+  return new Container(
+    padding: const EdgeInsets.all(20.0),
+    alignment: const FractionalOffset(0.5, 0.5),
+    child: new RaisedButton(
+      child: new Text(text),
+      onPressed: onPressed
+    ),
+  );
+}
 
 Future<Null> main() async {
   await Settings.load();
