@@ -20,6 +20,9 @@ int friend1(int playerIndex) => (playerIndex + 2) % 5;
 int friend2(int playerIndex) => (playerIndex + 3) % 5;
 int enemy2(int playerIndex) => (playerIndex + 4) % 5;
 
+const List<bool> allFalse = const <bool>[false, false, false, false, false];
+const List<bool> allTrue = const <bool>[true, true, true, true, true];
+
 class Player {
   Player(this.name);
 
@@ -123,7 +126,7 @@ class KempsAppState extends State<KempsApp> {
          '/':      (BuildContext context) => new KempsStart(this),
          '/names': (BuildContext context) => new KempsNames(this),
          '/play':  (BuildContext context) => new KempsPlay(this),
-        //  '/scores':  (BuildContext context) => new KempsAppScores()
+         '/end':   (BuildContext context) => new KempsEnd(this)
       },
       // onGenerateRoute: _getRoute,
     );
@@ -262,6 +265,13 @@ class KempsNamesState extends State<KempsNames> {
   }
 }
 
+enum KempsCall {
+  kemps,
+  unkemps,
+  coKemps,
+  coUnkemps,
+}
+
 class KempsPlay extends StatefulWidget {
   KempsPlay(this.app);
 
@@ -269,13 +279,6 @@ class KempsPlay extends StatefulWidget {
 
   @override
   KempsPlayState createState() => new KempsPlayState();
-}
-
-enum KempsCall {
-  kemps,
-  unkemps,
-  coKemps,
-  coUnkemps,
 }
 
 class KempsPlayState extends State<KempsPlay> {
@@ -493,7 +496,7 @@ class KempsPlayState extends State<KempsPlay> {
 
   void _endGame() {
     config.app.endGame();
-    Navigator.popAndPushNamed(context, '/names');
+    Navigator.popAndPushNamed(context, '/end');
   }
 
   List<int> get _selectedIndices {
@@ -576,8 +579,42 @@ class KempsPlayState extends State<KempsPlay> {
   }
 }
 
+class KempsEnd extends StatefulWidget {
+  KempsEnd(this.app);
+
+  KempsAppState app;
+
+  @override
+  KempsEndState createState() => new KempsEndState();
+}
+
+class KempsEndState extends State<KempsEnd> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
+
+  List<Player> get players => config.app.players;
+
+  @override
+  Widget build(BuildContext context) {
+    return new Scaffold(
+      key: _scaffoldKey,
+      appBar: new AppBar(
+        title: new Text('Scores')
+      ),
+      body: new Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          new KempsScores(
+            app: config.app
+          ),
+        ]
+      )
+    );
+  }
+}
+
 class KempsScores extends StatelessWidget {
-  KempsScores({this.app, this.selected, this.enabled, this.onSelectedChanged}) {
+  KempsScores({this.app, this.selected: allFalse, this.enabled: allTrue, this.onSelectedChanged}) {
     assert(app != null);
     assert(selected != null);
     assert(enabled != null);
