@@ -1,5 +1,4 @@
 // TODO: game history
-// TODO: post-game score screen
 // TODO: shuffle seats auto/manual
 
 import 'dart:io';
@@ -260,13 +259,49 @@ class KempsNamesState extends State<KempsNames> {
   }
 
   Widget _makeInput(int n) {
-    return new TextField(
-      labelText: 'Player $n',
-      initialValue: new InputValue(text: _playerNames[n-1]),
-      isDense: true,
-      onSaved: (InputValue val) { _playerNames[n-1] = val.text; },
-      validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
+    return new DragTarget<int>(
+      onAccept: (int from) { _handleDragAccept(from-1, n-1); },
+      builder: (BuildContext context, List<int> data, List<dynamic> rejectedData) {
+        return new Container(
+          decoration: new BoxDecoration(
+            border: new Border.all(
+              width: 3.0,
+              color: data.isEmpty ? Colors.white : Colors.red[500]
+            )
+          ),
+          child: new Row(
+            children: <Widget>[
+              new Draggable<int>(
+                data: n,
+                child: new Padding(padding: const EdgeInsets.only(right: 16.0), child: new Icon(Icons.reorder)),
+                feedback: new Padding(padding: const EdgeInsets.only(left: 50.0), child: new Text(_playerNames[n-1], style: Theme.of(context).textTheme.title)),
+                dragAnchor: DragAnchor.pointer,
+              ),
+              new Expanded(
+                child: new TextField(
+                  labelText: 'Player $n',
+                  initialValue: new InputValue(text: _playerNames[n-1]),
+                  isDense: true,
+                  onSaved: (InputValue val) { _playerNames[n-1] = val.text; },
+                  validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
+                )
+              )
+            ]
+          )
+        );
+      }
     );
+  }
+
+  void _handleDragAccept(int from, int to) {
+    setState(() {
+      String dragging = _playerNames[from];
+      print('swapping: $from to $to; $_playerNames');
+      _playerNames.removeAt(from);
+      _playerNames.insert(to, dragging);
+      _formKey = new GlobalKey<FormState>();  // remake the form
+      print('swapped: $_playerNames');
+    });
   }
 }
 
