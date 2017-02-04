@@ -132,10 +132,10 @@ class KempsAppState extends State<KempsApp> {
       // theme: theme,
       // initialRoute: isGameInProgress ? '/play' : '/',
       routes: <String, WidgetBuilder>{
-         '/':      (BuildContext context) => new KempsStart(this),
-         '/names': (BuildContext context) => new KempsNames(this),
-         '/play':  (BuildContext context) => new KempsPlay(this),
-         '/end':   (BuildContext context) => new KempsEnd(this)
+         '/':       (BuildContext context) => new KempsStart(this),
+         '/names':  (BuildContext context) => new KempsNames(this),
+         '/play':   (BuildContext context) => new KempsPlay(this),
+         '/scores': (BuildContext context) => new KempsScores(this)
       },
       // onGenerateRoute: _getRoute,
     );
@@ -212,7 +212,7 @@ class KempsStart extends StatelessWidget {
             _makeButton('CONTINUE ROUND $currentRoundNum GAME $currentGameNum', () { Navigator.pushNamed(context, '/play'); }) :
             new Container(),
           app.games.isNotEmpty ?
-            _makeButton('SCORES', () { Navigator.pushNamed(context, '/end'); }) :
+            _makeButton('SCORES', () { Navigator.pushNamed(context, '/scores'); }) :
             new Container(),
           app.currentRound.isNotEmpty ?
             _makeButton('NEW ROUND', () { app.startNewRound(); }) :
@@ -384,7 +384,7 @@ class KempsPlayState extends State<KempsPlay> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          new KempsScores(
+          new KempsScoreGrid(
             app: config.app,
             selected: _selected,
             enabled: _enabled,
@@ -571,7 +571,7 @@ class KempsPlayState extends State<KempsPlay> {
 
   void _endGame() {
     assert(config.app.currentGame.winners.isNotEmpty);
-    Navigator.popAndPushNamed(context, '/end');
+    Navigator.popAndPushNamed(context, '/scores');
   }
 
   List<int> get _selectedIndices {
@@ -654,16 +654,16 @@ class KempsPlayState extends State<KempsPlay> {
   }
 }
 
-class KempsEnd extends StatefulWidget {
-  KempsEnd(this.app);
+class KempsScores extends StatefulWidget {
+  KempsScores(this.app);
 
   KempsAppState app;
 
   @override
-  KempsEndState createState() => new KempsEndState();
+  KempsScoresState createState() => new KempsScoresState();
 }
 
-class KempsEndState extends State<KempsEnd> {
+class KempsScoresState extends State<KempsScores> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   List<Player> get players => config.app.players;
@@ -679,7 +679,7 @@ class KempsEndState extends State<KempsEnd> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          new KempsScores(app: config.app),
+          new KempsScoreGrid(app: config.app),
           new Padding(
             padding: const EdgeInsets.only(top: 12.0, left: 12.0),
             child: new Text('Profits:', style: Theme.of(context).textTheme.headline),
@@ -691,8 +691,8 @@ class KempsEndState extends State<KempsEnd> {
   }
 }
 
-class KempsScores extends StatelessWidget {
-  KempsScores({this.app, this.selected: allFalse, this.enabled: allTrue, this.onSelectedChanged}) {
+class KempsScoreGrid extends StatelessWidget {
+  KempsScoreGrid({this.app, this.selected: allFalse, this.enabled: allTrue, this.onSelectedChanged}) {
     assert(app != null);
     assert(selected != null);
     assert(enabled != null);
