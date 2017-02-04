@@ -134,6 +134,7 @@ class KempsAppState extends State<KempsApp> {
   }
 
   Game get currentGame => _games.isEmpty ? null : _games.last;
+  List<Game> get games => _games;
   List<Player> get players => currentGame?.players;
 
   List<Game> getRecentGames(int n) {
@@ -182,7 +183,10 @@ class KempsStart extends StatelessWidget {
           _makeButton('START', () { Navigator.pushNamed(context, '/names'); }),
           app.currentGame != null && app.currentGame.winners.isEmpty ?
             _makeButton('CONTINUE', () { Navigator.pushNamed(context, '/play'); }) :
-            new Container()
+            new Container(),
+          app.games.isNotEmpty ?
+            _makeButton('SCORES', () { Navigator.pushNamed(context, '/end'); }) :
+            new Container(),
         ]
       )
     );
@@ -476,10 +480,10 @@ class KempsPlayState extends State<KempsPlay> {
     config.app.save();
   }
 
-  void _checkForWinners() {
+  Future<Null> _checkForWinners() async {
     List<Player> winners = config.app.currentGame.winners;
     if (winners.isNotEmpty && mounted) {
-      showDialog(
+      await showDialog(
         context: context,
         child: new AlertDialog(
           title: new Text('KEMPS!'),
@@ -487,11 +491,12 @@ class KempsPlayState extends State<KempsPlay> {
           actions: <Widget>[
             new FlatButton(
               child: new Text('YAY'),
-              onPressed: _endGame
+              onPressed: () { Navigator.pop(context); }
             ),
           ]
         )
       );
+      _endGame();
     }
   }
 
