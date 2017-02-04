@@ -5,6 +5,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
@@ -135,6 +136,10 @@ class KempsAppState extends State<KempsApp> {
   Game get currentGame => _games.isEmpty ? null : _games.last;
   List<Player> get players => currentGame?.players;
 
+  List<Game> getRecentGames(int n) {
+    return _games.sublist(math.max(0, _games.length - n));
+  }
+
   void initGame(List<String> playerNames) {
     _games.add(new Game(
       new List<Player>.generate(5, (int index) {
@@ -142,10 +147,6 @@ class KempsAppState extends State<KempsApp> {
       })
     ));
     save();
-  }
-
-  void endGame() {
-    assert(currentGame.winners.isNotEmpty);
   }
 
   void load() {
@@ -495,7 +496,7 @@ class KempsPlayState extends State<KempsPlay> {
   }
 
   void _endGame() {
-    config.app.endGame();
+    assert(config.app.currentGame.winners.isNotEmpty);
     Navigator.popAndPushNamed(context, '/end');
   }
 
@@ -604,35 +605,11 @@ class KempsEndState extends State<KempsEnd> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          new KempsScores(
-            app: config.app
-          ),
-          new Text('Profits: ${_caclulateProfits()}'),
+          new KempsScores(app: config.app),
+          new KempsProfits(app: config.app, numGames: 3)
         ]
       )
     );
-  }
-
-  List<double> _caclulateProfits() {
-    List<double> profits = new List<double>.filled(5, 0.0);
-    List<Player> winners = config.app.currentGame.winners;
-    assert(winners.length >= 1 && winners.length <= 3);
-    for (int i = 0; i < 5; i++) {
-      if (players[i].score >= 5) {
-        // Winners always gets 50. (Except the rare 3-winner case.)
-        profits[i] = (winners.length == 3) ? (100.0 / 3.0) : 50.0;
-        if (winners.length == 1) {
-          // Divide the other 50 among friends.
-          int sharing1 = players[i].getProfitsWith(friend1(i));
-          int sharing2 = players[i].getProfitsWith(friend2(i));
-          int total = sharing1 + sharing2;
-          profits[friend1(i)] = 50.0 * sharing1.toDouble()/total;
-          profits[friend2(i)] = 50.0 * sharing2.toDouble()/total;
-        }
-      }
-    }
-
-    return profits;
   }
 }
 
@@ -663,13 +640,7 @@ class KempsScores extends StatelessWidget {
             2: const FlexColumnWidth(4.0)
           },
           border: new TableBorder.all(color: Colors.black26),
-          children: <TableRow>[
-            _buildRow(0),
-            _buildRow(1),
-            _buildRow(2),
-            _buildRow(3),
-            _buildRow(4),
-          ]
+          children: new List<TableRow>.generate(5, (int i) => _buildRow(i))
         )
       )
     );
@@ -766,6 +737,66 @@ class KempsScores extends StatelessWidget {
   }
 }
 
+class KempsProfits extends StatelessWidget {
+  KempsProfits({this.app, this.numGames}) :
+    currentProfits = _calculateProfitsForGame(app.currentGame),
+    totalProfits = _calculateProfitsForGames(app.getRecentGames(numGames));
+
+  final KempsAppState app;
+  final List<double> currentProfits;
+  final List<double> totalProfits;
+  final int numGames;
+
+  @override
+  Widget build(BuildContext context) {
+    return new Material(
+      child: new Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+        child: new Table(
+          columnWidths: <int, TableColumnWidth>{
+            0: const FlexColumnWidth(4.0),
+            1: const FlexColumnWidth(3.0),
+            2: const FlexColumnWidth(4.0)
+          },
+          // border: new TableBorder.all(color: Colors.black26),
+          children: <TableRow>[
+            _buildRow(
+              ['Player', 'Last game', 'Last $numGames games'],
+              style: Theme.of(context).textTheme.subhead,
+            )
+          ]..addAll(new List<TableRow>.generate(5, (int i) => _buildProfitRow(i)))
+        )
+      )
+    );
+  }
+
+  static const EdgeInsets _kCellPadding = const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0);
+
+  TableRow _buildProfitRow(int index) {
+    return _buildRow([
+      app.players[index].name,
+      '${currentProfits[index].truncate()}',
+      '${totalProfits[index].truncate()}',
+    ]);
+  }
+
+  TableRow _buildRow(List<String> columns, {TextStyle style}) {
+    return new TableRow(
+      children: new List<Widget>.generate(columns.length, (int c) {
+        return new TableCell(
+          verticalAlignment: TableCellVerticalAlignment.middle,
+          child: new Container(
+            padding: _kCellPadding,
+            alignment: c == 0 ? FractionalOffset.centerLeft : FractionalOffset.centerRight,
+            child: new Text(columns[c], style: style
+            )
+          )
+        );
+      })
+    );
+  }
+}
+
 Widget _makeButton(String text, Function onPressed) {
   return new Container(
     padding: const EdgeInsets.all(20.0),
@@ -775,6 +806,37 @@ Widget _makeButton(String text, Function onPressed) {
       onPressed: onPressed
     ),
   );
+}
+
+List<double> _calculateProfitsForGames(List<Game> games) {
+  List<double> profits = new List<double>.filled(5, 0.0);
+  for (Game game in games) {
+    _calculateProfitsForGame(game, profits);
+  }
+  return profits;
+}
+
+List<double> _calculateProfitsForGame(Game game, [List<double> profits]) {
+  profits ??= new List<double>.filled(5, 0.0);
+  List<Player> winners = game.winners;
+  List<Player> players = game.players;
+  assert(winners.length >= 1 && winners.length <= 3);
+  for (int i = 0; i < 5; i++) {
+    if (players[i].score >= 5) {
+      // Winners always gets 50. (Except the rare 3-winner case.)
+      profits[i] = (winners.length == 3) ? (100.0 / 3.0) : 50.0;
+      if (winners.length == 1) {
+        // Divide the other 50 among friends.
+        int sharing1 = players[i].getProfitsWith(friend1(i));
+        int sharing2 = players[i].getProfitsWith(friend2(i));
+        int total = sharing1 + sharing2;
+        profits[friend1(i)] = 50.0 * sharing1.toDouble()/total;
+        profits[friend2(i)] = 50.0 * sharing2.toDouble()/total;
+      }
+    }
+  }
+
+  return profits;
 }
 
 Future<Null> main() async {
