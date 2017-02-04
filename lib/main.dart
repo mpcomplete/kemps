@@ -385,7 +385,7 @@ class KempsPlayState extends State<KempsPlay> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           new KempsScoreGrid(
-            app: config.app,
+            game: config.app.currentGame,
             selected: _selected,
             enabled: _enabled,
             onSelectedChanged: _onSelectedChanged,
@@ -668,18 +668,57 @@ class KempsScoresState extends State<KempsScores> {
 
   List<Player> get players => config.app.players;
 
+  Point _dragStartPosition;
+  double _dragDelta = 0.0;
+  int currentGameNum;
+
+  @override
+  void initState() {
+    super.initState();
+    currentGameNum = config.app.currentGameNum;
+  }
+
   @override
   Widget build(BuildContext context) {
+    List<Widget> children = <Widget>[
+        new FractionalTranslation(
+          translation: new FractionalOffset(_dragDelta, 0.0),
+          transformHitTests: true,
+          child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum-1])
+        )
+    ];
+    if (_dragDelta > 0.0) {
+      children.insert(0, new FractionalTranslation(
+          translation: new FractionalOffset(_dragDelta - 1.0, 0.0),
+          transformHitTests: true,
+          child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum-2])
+        )
+      );
+    } else if (_dragDelta < 0.0) {
+      children.add(new FractionalTranslation(
+          translation: new FractionalOffset(_dragDelta + 1.0, 0.0),
+          transformHitTests: true,
+          child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum])
+        )
+      );
+    }
+    Widget scores = new Stack(children: children);
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
-        title: new Text('Scores for Round ${config.app.currentRoundNum} Game ${config.app.currentGameNum}')
+        title: new Text('Scores for Round ${config.app.currentRoundNum} Game ${currentGameNum}')
       ),
       body: new Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          new KempsScoreGrid(app: config.app),
+          new GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragStart: _handleDragStart,
+            onHorizontalDragUpdate: _handleDragUpdate,
+            onHorizontalDragEnd: _handleDragEnd,
+            child: scores,
+          ),
           new Padding(
             padding: const EdgeInsets.only(top: 12.0, left: 12.0),
             child: new Text('Profits:', style: Theme.of(context).textTheme.headline),
@@ -689,16 +728,42 @@ class KempsScoresState extends State<KempsScores> {
       )
     );
   }
+
+  void _handleDragStart(DragStartDetails details) {
+    _dragStartPosition = details.globalPosition;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    Offset delta = details.globalPosition - _dragStartPosition;
+    setState(() {
+      _dragDelta = delta.dx / context.size.width;
+      if (currentGameNum == 1)  // can't drag right
+        _dragDelta = math.min(_dragDelta, 0.0);
+      if (currentGameNum == config.app.currentGameNum)  // can't drag left
+        _dragDelta = math.max(_dragDelta, 0.0);
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() {
+      if (_dragDelta > 0.5) {
+        currentGameNum--;
+      } else if (_dragDelta < -0.5) {
+        currentGameNum++;
+      }
+      _dragDelta = 0.0;
+    });
+  }
 }
 
 class KempsScoreGrid extends StatelessWidget {
-  KempsScoreGrid({this.app, this.selected: allFalse, this.enabled: allTrue, this.onSelectedChanged}) {
-    assert(app != null);
+  KempsScoreGrid({this.game, this.selected: allFalse, this.enabled: allTrue, this.onSelectedChanged}) {
+    assert(game != null);
     assert(selected != null);
     assert(enabled != null);
   }
 
-  final KempsAppState app;
+  final Game game;
   // If selected[i] is true, the checkbox for row i will be checked.
   final List<bool> selected;
   // If enabled[i] is true, the checkbox for row i will be enabled.
@@ -742,7 +807,7 @@ class KempsScoreGrid extends StatelessWidget {
                     value: selected[index],
                     onChanged: !enabled[index] ? null : (bool value) => onSelectedChanged(index, value)
                   ),
-                  new Text(app.players[index].name),
+                  new Text(game.players[index].name),
               ]
             )
           )
@@ -751,7 +816,7 @@ class KempsScoreGrid extends StatelessWidget {
           verticalAlignment: TableCellVerticalAlignment.middle,
           child: new Container(
             padding: _kCellPadding,
-            child: new Text(_getScoreString(app.players[index].score))
+            child: new Text(_getScoreString(game.players[index].score))
           )
         ),
         new TableCell(
@@ -767,14 +832,14 @@ class KempsScoreGrid extends StatelessWidget {
                   new TableCell(
                     child: new Container(
                       padding: _kCellPadding,
-                      child: new Text(app.players[friend1(index)].name)
+                      child: new Text(game.players[friend1(index)].name)
                     )
                   ),
                   new TableCell(
                     child: new Container(
                       padding: _kCellPadding,
                       alignment: FractionalOffset.centerRight,
-                      child: new Text(app.players[index].getProfitsWith(friend1(index)).toString()),
+                      child: new Text(game.players[index].getProfitsWith(friend1(index)).toString()),
                     )
                   ),
                 ]
@@ -790,14 +855,14 @@ class KempsScoreGrid extends StatelessWidget {
                   new TableCell(
                     child: new Container(
                       padding: _kCellPadding,
-                      child: new Text(app.players[friend2(index)].name)
+                      child: new Text(game.players[friend2(index)].name)
                     )
                   ),
                   new TableCell(
                     child: new Container(
                       padding: _kCellPadding,
                       alignment: FractionalOffset.centerRight,
-                      child: new Text(app.players[index].getProfitsWith(friend2(index)).toString()),
+                      child: new Text(game.players[index].getProfitsWith(friend2(index)).toString()),
                     )
                   ),
                 ]
