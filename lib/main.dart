@@ -663,7 +663,7 @@ class KempsScores extends StatefulWidget {
   KempsScoresState createState() => new KempsScoresState();
 }
 
-class KempsScoresState extends State<KempsScores> {
+class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   List<Player> get players => config.app.players;
@@ -680,7 +680,7 @@ class KempsScoresState extends State<KempsScores> {
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> children = <Widget>[
+    List<Widget> scores = <Widget>[
         new FractionalTranslation(
           translation: new FractionalOffset(_dragDelta, 0.0),
           transformHitTests: true,
@@ -688,21 +688,21 @@ class KempsScoresState extends State<KempsScores> {
         )
     ];
     if (_dragDelta > 0.0) {
-      children.insert(0, new FractionalTranslation(
+      scores.insert(0, new FractionalTranslation(
           translation: new FractionalOffset(_dragDelta - 1.0, 0.0),
           transformHitTests: true,
           child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum-2])
         )
       );
     } else if (_dragDelta < 0.0) {
-      children.add(new FractionalTranslation(
+      scores.add(new FractionalTranslation(
           translation: new FractionalOffset(_dragDelta + 1.0, 0.0),
           transformHitTests: true,
           child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum])
         )
       );
     }
-    Widget scores = new Stack(children: children);
+
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
@@ -717,7 +717,7 @@ class KempsScoresState extends State<KempsScores> {
             onHorizontalDragStart: _handleDragStart,
             onHorizontalDragUpdate: _handleDragUpdate,
             onHorizontalDragEnd: _handleDragEnd,
-            child: scores,
+            child: new Stack(children: scores),
           ),
           new Padding(
             padding: const EdgeInsets.only(top: 12.0, left: 12.0),
@@ -745,14 +745,28 @@ class KempsScoresState extends State<KempsScores> {
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    setState(() {
-      if (_dragDelta > 0.5) {
-        currentGameNum--;
-      } else if (_dragDelta < -0.5) {
-        currentGameNum++;
-      }
-      _dragDelta = 0.0;
+    AnimationController c = new AnimationController(duration: const Duration(milliseconds: 200), vsync: this);
+    c.value = _dragDelta.abs();
+    c.addListener(() {
+      setState(() => _dragDelta = c.value * _dragDelta.sign);
     });
+    c.addStatusListener((AnimationStatus status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          if (_dragDelta > 0.5) {
+            currentGameNum--;
+          } else if (_dragDelta < -0.5) {
+            currentGameNum++;
+          }
+          _dragDelta = 0.0;
+        });
+        c.dispose();
+      }
+    });
+    if (c.value < 0.5)
+      c.reverse();
+    else
+      c.forward();
   }
 }
 
