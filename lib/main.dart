@@ -606,6 +606,10 @@ class KempsEndState extends State<KempsEnd> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           new KempsScores(app: config.app),
+          new Padding(
+            padding: const EdgeInsets.only(top: 12.0, left: 12.0),
+            child: new Text('Profits:', style: Theme.of(context).textTheme.headline),
+          ),
           new KempsProfits(app: config.app, numGames: 3)
         ]
       )
