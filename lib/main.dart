@@ -476,7 +476,7 @@ class KempsPlayState extends State<KempsPlay> {
   }
 
   void _checkForWinners() {
-    List<Player> winners = players.where((Player p) => p.score >= 5).toList();
+    List<Player> winners = config.app.currentGame.winners;
     if (winners.isNotEmpty && mounted) {
       showDialog(
         context: context,
@@ -607,9 +607,32 @@ class KempsEndState extends State<KempsEnd> {
           new KempsScores(
             app: config.app
           ),
+          new Text('Profits: ${_caclulateProfits()}'),
         ]
       )
     );
+  }
+
+  List<double> _caclulateProfits() {
+    List<double> profits = new List<double>.filled(5, 0.0);
+    List<Player> winners = config.app.currentGame.winners;
+    assert(winners.length >= 1 && winners.length <= 3);
+    for (int i = 0; i < 5; i++) {
+      if (players[i].score >= 5) {
+        // Winners always gets 50. (Except the rare 3-winner case.)
+        profits[i] = (winners.length == 3) ? (100.0 / 3.0) : 50.0;
+        if (winners.length == 1) {
+          // Divide the other 50 among friends.
+          int sharing1 = players[i].getProfitsWith(friend1(i));
+          int sharing2 = players[i].getProfitsWith(friend2(i));
+          int total = sharing1 + sharing2;
+          profits[friend1(i)] = 50.0 * sharing1.toDouble()/total;
+          profits[friend2(i)] = 50.0 * sharing2.toDouble()/total;
+        }
+      }
+    }
+
+    return profits;
   }
 }
 
