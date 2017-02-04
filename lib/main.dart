@@ -53,20 +53,23 @@ class Player {
 }
 
 class Game {
-  Game(this.players);
+  Game({this.players, this.round});
 
   List<Player> players;
+  int round;
 
   List<Player> get winners => players.where((Player p) => p.score >= 5).toList();
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'players': players.map((Player player) => player.toJson()).toList(),
+      'round': round,
     };
   }
 
   Game.fromJson(Map<String, dynamic> json) {
     players = json['players'].map((Map player) => new Player.fromJson(player)).toList();
+    round = json['round'] ?? 0;
   }
 }
 
@@ -109,6 +112,7 @@ class KempsApp extends StatefulWidget {
 
 class KempsAppState extends State<KempsApp> {
   List<Game> _games = <Game>[];
+  int _currentRoundNum = 1;
 
   @override
   void initState() {
@@ -132,33 +136,51 @@ class KempsAppState extends State<KempsApp> {
     );
   }
 
+  int get currentRoundNum => _currentRoundNum;
+  int get currentGameNum => currentRound?.length ?? 0;
   Game get currentGame => _games.isEmpty ? null : _games.last;
   List<Game> get games => _games;
+  List<Game> get currentRound => getGamesForRound(_currentRoundNum);
   List<Player> get players => currentGame?.players;
 
-  List<Game> getRecentGames(int n) {
-    return _games.sublist(math.max(0, _games.length - n));
+  List<Game> getGamesForRound(int round) {
+    return _games.where((Game game) => game.round == round).toList();
   }
 
   void initGame(List<String> playerNames) {
     _games.add(new Game(
-      new List<Player>.generate(5, (int index) {
+      players: new List<Player>.generate(5, (int index) {
         return new Player(playerNames[index]);
-      })
+      }),
+      round: _currentRoundNum
     ));
     save();
+  }
+
+  void startNewRound() {
+    setState(() {
+    _currentRoundNum++;
+    });
   }
 
   void load() {
     List json = Settings.get('games');
     if (json != null)
       _games = json.map((Map game) => new Game.fromJson(game)).toList();
+    if (currentGame != null)
+      _currentRoundNum = currentGame?.round;
   }
 
   void save() {
     Settings.save(<String, dynamic>{
       'games': _games.map((Game game) => game.toJson()).toList()
     });
+  }
+
+  void clearGames() {
+    List<String> playerNames = players.map((Player p) => p.name).toList();
+    _games = <Game>[];
+    initGame(playerNames);
   }
 }
 
@@ -171,6 +193,9 @@ class KempsStart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    int currentRoundNum = app.currentRoundNum;
+    int currentGameNum = app.currentGameNum;
+    int nextGameNum = app.currentGame == null ? 1 : app.currentGame.winners.isEmpty ? currentGameNum : currentGameNum + 1;
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
@@ -179,13 +204,17 @@ class KempsStart extends StatelessWidget {
       body: new Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          _makeButton('START', () { Navigator.pushNamed(context, '/names'); }),
+          _makeButton('START ROUND $currentRoundNum GAME $nextGameNum', () { Navigator.pushNamed(context, '/names'); }),
           app.currentGame != null && app.currentGame.winners.isEmpty ?
-            _makeButton('CONTINUE', () { Navigator.pushNamed(context, '/play'); }) :
+            _makeButton('CONTINUE ROUND $currentRoundNum GAME $currentGameNum', () { Navigator.pushNamed(context, '/play'); }) :
             new Container(),
           app.games.isNotEmpty ?
             _makeButton('SCORES', () { Navigator.pushNamed(context, '/end'); }) :
             new Container(),
+          app.currentRound.isNotEmpty ?
+            _makeButton('NEW ROUND', () { app.startNewRound(); }) :
+            new Container(),
+          _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); })
         ]
       )
     );
@@ -295,12 +324,14 @@ class KempsNamesState extends State<KempsNames> {
 
   void _handleDragAccept(int from, int to) {
     setState(() {
+      FormState form = _formKey.currentState;
+      form.save();
+
       String dragging = _playerNames[from];
-      print('swapping: $from to $to; $_playerNames');
+      _playerNames = new List<String>.from(_playerNames);  // make it growable
       _playerNames.removeAt(from);
       _playerNames.insert(to, dragging);
       _formKey = new GlobalKey<FormState>();  // remake the form
-      print('swapped: $_playerNames');
     });
   }
 }
@@ -344,7 +375,7 @@ class KempsPlayState extends State<KempsPlay> {
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
-        title: new Text('Playing')
+        title: new Text('Playing Round ${config.app.currentRoundNum} Game ${config.app.currentGameNum}')
       ),
       body: new Column(
         mainAxisSize: MainAxisSize.min,
@@ -639,7 +670,7 @@ class KempsEndState extends State<KempsEnd> {
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
-        title: new Text('Scores')
+        title: new Text('Scores for Round ${config.app.currentRoundNum} Game ${config.app.currentGameNum}')
       ),
       body: new Column(
         mainAxisSize: MainAxisSize.min,
@@ -650,7 +681,7 @@ class KempsEndState extends State<KempsEnd> {
             padding: const EdgeInsets.only(top: 12.0, left: 12.0),
             child: new Text('Profits:', style: Theme.of(context).textTheme.headline),
           ),
-          new KempsProfits(app: config.app, numGames: 3)
+          new KempsProfits(app: config.app)
         ]
       )
     );
@@ -782,9 +813,9 @@ class KempsScores extends StatelessWidget {
 }
 
 class KempsProfits extends StatelessWidget {
-  KempsProfits({this.app, this.numGames}) :
+  KempsProfits({this.app}) :
     currentProfits = _calculateProfitsForGame(app.currentGame),
-    totalProfits = _calculateProfitsForGames(app.getRecentGames(numGames));
+    totalProfits = _calculateProfitsForGames(app.currentRound);
 
   final KempsAppState app;
   final List<double> currentProfits;
@@ -805,7 +836,7 @@ class KempsProfits extends StatelessWidget {
           // border: new TableBorder.all(color: Colors.black26),
           children: <TableRow>[
             _buildRow(
-              ['Player', 'Last game', 'Last $numGames games'],
+              ['Player', 'This game', 'This round'],
               style: Theme.of(context).textTheme.subhead,
             )
           ]..addAll(new List<TableRow>.generate(5, (int i) => _buildProfitRow(i)))
