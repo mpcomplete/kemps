@@ -117,7 +117,7 @@ class KempsApp extends StatefulWidget {
 
 class KempsAppState extends State<KempsApp> {
   List<Game> _games = <Game>[];
-  int _currentRoundNum = 1;
+  int _currentRoundNum = 0;
 
   @override
   void initState() {
@@ -132,10 +132,11 @@ class KempsAppState extends State<KempsApp> {
       // theme: theme,
       // initialRoute: isGameInProgress ? '/play' : '/',
       routes: <String, WidgetBuilder>{
-         '/':       (BuildContext context) => new KempsStart(this),
-         '/names':  (BuildContext context) => new KempsNames(this),
-         '/play':   (BuildContext context) => new KempsPlay(this),
-         '/history': (BuildContext context) => new KempsHistory(this)
+         '/':           (BuildContext context) => new KempsStart(this),
+         '/startGame':  (BuildContext context) => new KempsNames(this, roundNum: _currentRoundNum),
+         '/startRound': (BuildContext context) => new KempsNames(this, roundNum: _currentRoundNum+1),
+         '/play':       (BuildContext context) => new KempsPlay(this),
+         '/history':    (BuildContext context) => new KempsHistory(this)
         //  '/scores': (BuildContext context) => new KempsScores(this)
       },
       onGenerateRoute: _getRoute,
@@ -167,18 +168,13 @@ class KempsAppState extends State<KempsApp> {
     return _games.where((Game game) => game.round == round).toList();
   }
 
-  void initGame(List<String> playerNames) {
-      _games.add(new Game(
+  void initGame(List<String> playerNames, int roundNum) {
+    _currentRoundNum = roundNum;
+    _games.add(new Game(
       players: new List<Player>.generate(5, (int i) => new Player(playerNames[i])),
       round: _currentRoundNum
     ));
     save();
-  }
-
-  void startNewRound() {
-    setState(() {
-    _currentRoundNum++;
-    });
   }
 
   void load() {
@@ -194,12 +190,6 @@ class KempsAppState extends State<KempsApp> {
       'games': _games.map((Game game) => game.toJson()).toList()
     });
   }
-
-  void clearGames() {
-    List<String> playerNames = players.map((Player p) => p.name).toList();
-    _games = <Game>[];
-    initGame(playerNames);
-  }
 }
 
 class KempsStart extends StatelessWidget {
@@ -211,9 +201,9 @@ class KempsStart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    int currentRoundNum = app.currentRoundNum;
-    int currentGameNum = app.currentGameNum;
-    int nextGameNum = app.currentGame == null ? 1 : app.currentGame.winners.isEmpty ? currentGameNum : currentGameNum + 1;
+    bool canStartRound = app.games.isEmpty || app.currentRound.isNotEmpty;
+    bool canContinueGame = app.currentGame != null && app.currentGame.winners.isEmpty;
+    bool canStartGame = app.currentGame != null && app.currentGame.winners.isNotEmpty;
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
@@ -222,15 +212,17 @@ class KempsStart extends StatelessWidget {
       body: new Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          _makeButton('START ROUND $currentRoundNum GAME $nextGameNum', () { Navigator.pushNamed(context, '/names'); }),
-          app.currentGame != null && app.currentGame.winners.isEmpty ?
-            _makeButton('CONTINUE ROUND $currentRoundNum GAME $currentGameNum', () { Navigator.pushNamed(context, '/play'); }) :
+          canStartGame ?
+            _makeButton('START GAME ${app.currentGameNum+1}', () { Navigator.pushNamed(context, '/startGame'); }) :
+            new Container(),
+          canContinueGame ?
+            _makeButton('CONTINUE ROUND ${app.currentRoundNum} GAME ${app.currentGameNum}', () { Navigator.pushNamed(context, '/play'); }) :
+            new Container(),
+          canStartRound ?
+            _makeButton('START NEW ROUND', () { Navigator.pushNamed(context, '/startRound'); }) :
             new Container(),
           app.games.isNotEmpty ?
             _makeButton('HISTORY', () { Navigator.pushNamed(context, '/history'); }) :
-            new Container(),
-          app.currentRound.isNotEmpty ?
-            _makeButton('NEW ROUND', () { app.startNewRound(); }) :
             new Container(),
           _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); })
         ]
@@ -240,9 +232,10 @@ class KempsStart extends StatelessWidget {
 }
 
 class KempsNames extends StatefulWidget {
-  KempsNames(this.app);
+  KempsNames(this.app, {this.roundNum});
 
-  KempsAppState app;
+  final KempsAppState app;
+  final int roundNum;
 
   @override
   KempsNamesState createState() => new KempsNamesState();
@@ -256,11 +249,14 @@ class KempsNamesState extends State<KempsNames> {
   bool _autovalidate = false;
   String _warnings = '';
 
+  bool get _isNewRound => config.roundNum != config.app.currentRoundNum;
+
   @override
   void initState() {
     super.initState();
     if (config.app.players != null)
       _playerNames = config.app.players.map((Player p) => p.name).toList();
+    _checkFriends();
   }
 
   @override
@@ -268,7 +264,7 @@ class KempsNamesState extends State<KempsNames> {
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
-        title: new Text('Enter Players')
+        title: new Text(_isNewRound ? 'Enter Player Names' : 'Rearrange Players')
       ),
       body: new Form(
         key: _formKey,
@@ -310,13 +306,17 @@ class KempsNamesState extends State<KempsNames> {
                 dragAnchor: DragAnchor.pointer,
               ),
               new Expanded(
-                child: new TextField(
+                child: _isNewRound ? new TextField(
                   labelText: 'Player $n',
                   initialValue: new InputValue(text: _playerNames[n-1]),
                   isDense: true,
                   onSaved: (InputValue val) { _playerNames[n-1] = val.text; },
                   validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
-                )
+                ) : new Container(
+                  height: 64.0,
+                  alignment: FractionalOffset.centerLeft,
+                  child: new Text(_playerNames[n-1])
+                ),
               )
             ]
           )
@@ -338,7 +338,7 @@ class KempsNamesState extends State<KempsNames> {
       _showInSnackBar('Please give every player a name.');
     } else {
       form.save();
-      config.app.initGame(_playerNames);
+      config.app.initGame(_playerNames, config.roundNum);
       Navigator.popAndPushNamed(context, '/play');
     }
   }
@@ -371,6 +371,8 @@ class KempsNamesState extends State<KempsNames> {
   }
 
   void _checkFriends() {
+    if (_isNewRound)
+      return;
     Map<String, List<String>> friends = <String, List<String>>{};
     for (int i = 0; i < 5; i++)
       friends[_playerNames[i]] = <String>[_playerNames[friend1(i)], _playerNames[friend2(i)]];
