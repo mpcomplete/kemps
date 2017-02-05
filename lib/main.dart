@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 const String _kSettingsFile = 'settings.json';
 
@@ -135,10 +136,25 @@ class KempsAppState extends State<KempsApp> {
          '/':       (BuildContext context) => new KempsStart(this),
          '/names':  (BuildContext context) => new KempsNames(this),
          '/play':   (BuildContext context) => new KempsPlay(this),
-         '/scores': (BuildContext context) => new KempsScores(this)
+         '/history': (BuildContext context) => new KempsHistory(this)
+        //  '/scores': (BuildContext context) => new KempsScores(this)
       },
-      // onGenerateRoute: _getRoute,
+      onGenerateRoute: _getRoute,
     );
+  }
+
+  Route<Null> _getRoute(RouteSettings settings) {
+    List<String> path = settings.name.split('/');
+    if (path[0] == '' && path[1] == 'scores') {
+      if (path.length != 3)
+        return null;
+      int gameIndex = int.parse(path[2]);
+      return new MaterialPageRoute<Null>(
+        settings: settings,
+        builder: (BuildContext context) => new KempsScores(this, startGameIndex: gameIndex)
+      );
+    }
+    return null;
   }
 
   int get currentRoundNum => _currentRoundNum;
@@ -212,7 +228,7 @@ class KempsStart extends StatelessWidget {
             _makeButton('CONTINUE ROUND $currentRoundNum GAME $currentGameNum', () { Navigator.pushNamed(context, '/play'); }) :
             new Container(),
           app.games.isNotEmpty ?
-            _makeButton('SCORES', () { Navigator.pushNamed(context, '/scores'); }) :
+            _makeButton('HISTORY', () { Navigator.pushNamed(context, '/history'); }) :
             new Container(),
           app.currentRound.isNotEmpty ?
             _makeButton('NEW ROUND', () { app.startNewRound(); }) :
@@ -516,7 +532,7 @@ class KempsPlayState extends State<KempsPlay> {
     }
   }
 
-    void _handleCoUnkemps() {
+  void _handleCoUnkemps() {
     if (_onSelectedChanged == null) {
       setState(() {
         _selected = new List<bool>.filled(5, false);
@@ -571,7 +587,7 @@ class KempsPlayState extends State<KempsPlay> {
 
   void _endGame() {
     assert(config.app.currentGame.winners.isNotEmpty);
-    Navigator.popAndPushNamed(context, '/scores');
+    Navigator.popAndPushNamed(context, '/scores/${config.app.games.length-1}');
   }
 
   List<int> get _selectedIndices {
@@ -655,9 +671,10 @@ class KempsPlayState extends State<KempsPlay> {
 }
 
 class KempsScores extends StatefulWidget {
-  KempsScores(this.app);
+  KempsScores(this.app, {this.startGameIndex});
 
-  KempsAppState app;
+  final KempsAppState app;
+  final int startGameIndex;
 
   @override
   KempsScoresState createState() => new KempsScoresState();
@@ -670,12 +687,12 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
 
   Point _dragStartPosition;
   double _dragDelta = 0.0;
-  int currentGameNum;
+  int _gameIndex;
 
   @override
   void initState() {
     super.initState();
-    currentGameNum = config.app.currentGameNum;
+    _gameIndex = config.startGameIndex;
   }
 
   @override
@@ -684,21 +701,21 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
         new FractionalTranslation(
           translation: new FractionalOffset(_dragDelta, 0.0),
           transformHitTests: true,
-          child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum-1])
+          child: new KempsScoreGrid(game: config.app.games[_gameIndex])
         )
     ];
     if (_dragDelta > 0.0) {
       scores.insert(0, new FractionalTranslation(
           translation: new FractionalOffset(_dragDelta - 1.0, 0.0),
           transformHitTests: true,
-          child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum-2])
+          child: new KempsScoreGrid(game: config.app.games[_gameIndex-1])
         )
       );
     } else if (_dragDelta < 0.0) {
       scores.add(new FractionalTranslation(
           translation: new FractionalOffset(_dragDelta + 1.0, 0.0),
           transformHitTests: true,
-          child: new KempsScoreGrid(game: config.app.currentRound[currentGameNum])
+          child: new KempsScoreGrid(game: config.app.games[_gameIndex+1])
         )
       );
     }
@@ -706,7 +723,7 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
-        title: new Text('Scores for Round ${config.app.currentRoundNum} Game ${currentGameNum}')
+        title: new Text('Scores for Round $_roundNum Game $_gameNum')
       ),
       body: new Column(
         mainAxisSize: MainAxisSize.min,
@@ -729,6 +746,15 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
     );
   }
 
+  int get _roundNum => config.app.games[_gameIndex].round;
+  int get _gameNum {
+    for (int i = _gameIndex; i >= 0; i--) {
+      if (config.app.games[i].round != _roundNum)
+        return _gameIndex - i;
+    }
+    return _gameIndex + 1;
+  }
+
   void _handleDragStart(DragStartDetails details) {
     _dragStartPosition = details.globalPosition;
   }
@@ -737,9 +763,9 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
     Offset delta = details.globalPosition - _dragStartPosition;
     setState(() {
       _dragDelta = delta.dx / context.size.width;
-      if (currentGameNum == 1)  // can't drag right
+      if (_gameNum == 1)  // can't drag right
         _dragDelta = math.min(_dragDelta, 0.0);
-      if (currentGameNum == config.app.currentGameNum)  // can't drag left
+      if (_gameNum == config.app.getGamesForRound(_roundNum).length)  // can't drag left
         _dragDelta = math.max(_dragDelta, 0.0);
     });
   }
@@ -754,9 +780,9 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
       if (status == AnimationStatus.completed) {
         setState(() {
           if (_dragDelta > 0.5) {
-            currentGameNum--;
+            _gameIndex--;
           } else if (_dragDelta < -0.5) {
-            currentGameNum++;
+            _gameIndex++;
           }
           _dragDelta = 0.0;
         });
@@ -767,6 +793,69 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
       c.reverse();
     else
       c.forward();
+  }
+}
+
+class KempsHistory extends StatefulWidget {
+  KempsHistory(this.app);
+
+  KempsAppState app;
+
+  @override
+  KempsHistoryState createState() => new KempsHistoryState();
+}
+
+class KempsHistoryState extends State<KempsHistory> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
+
+  List<Player> get players => config.app.players;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return new Scaffold(
+      key: _scaffoldKey,
+      appBar: new AppBar(
+        title: new Text('Game History')
+      ),
+      body: new ListView(
+        shrinkWrap: true,
+        children: _buildList(),
+      )
+    );
+  }
+
+  List<Widget> _buildList() {
+    int gameIndex = 0;
+    int gameNum = 1;
+    int lastRoundNum = -1;
+    List<Widget> items = <Widget>[];
+    for (Game game in config.app.games) {
+      if (game.round != lastRoundNum) {
+        lastRoundNum = game.round;
+        gameNum = 1;
+      }
+      items.add(_buildListItem(game, gameNum++, gameIndex++));
+    }
+    return items.reversed.toList();
+  }
+
+  final DateFormat _kDateFormat = new DateFormat('EEE, yyyy MMM d, K:mm a');
+
+  Widget _buildListItem(Game game, int gameNum, int gameIndex) {
+    return new ListItem(
+      isThreeLine: false,
+      dense: false,
+      title: new Text(_kDateFormat.format(game.date)),
+      subtitle: new Text('Round ${game.round} Game $gameNum'),
+      onTap: () {
+        Navigator.pushNamed(context, '/scores/$gameIndex');
+      }
+    );
   }
 }
 
