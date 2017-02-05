@@ -1,4 +1,3 @@
-// TODO: game history
 // TODO: shuffle seats auto/manual
 
 import 'dart:io';
@@ -255,6 +254,7 @@ class KempsNamesState extends State<KempsNames> {
   GlobalKey<FormState> _formKey = new GlobalKey<FormState>();
   List<String> _playerNames = new List<String>.filled(5, '');
   bool _autovalidate = false;
+  String _warnings = '';
 
   @override
   void initState() {
@@ -282,28 +282,12 @@ class KempsNamesState extends State<KempsNames> {
             _makeInput(4),
             _makeInput(5),
             _makeButton('SAVE', _handleSubmitted),
+            _makeButton('SHUFFLE', _handleShuffle),
+            new Text(_warnings),
           ]
         )
       )
     );
-  }
-
-  void _showInSnackBar(String value) {
-    _scaffoldKey.currentState.showSnackBar(new SnackBar(
-      content: new Text(value)
-    ));
-  }
-
-  void _handleSubmitted() {
-    FormState form = _formKey.currentState;
-    if (!form.validate()) {
-      _autovalidate = true;
-      _showInSnackBar('Please give every player a name.');
-    } else {
-      form.save();
-      config.app.initGame(_playerNames);
-      Navigator.popAndPushNamed(context, '/play');
-    }
   }
 
   Widget _makeInput(int n) {
@@ -341,17 +325,80 @@ class KempsNamesState extends State<KempsNames> {
     );
   }
 
+  void _showInSnackBar(String value) {
+    _scaffoldKey.currentState.showSnackBar(new SnackBar(
+      content: new Text(value)
+    ));
+  }
+
+  void _handleSubmitted() {
+    FormState form = _formKey.currentState;
+    if (!form.validate()) {
+      _autovalidate = true;
+      _showInSnackBar('Please give every player a name.');
+    } else {
+      form.save();
+      config.app.initGame(_playerNames);
+      Navigator.popAndPushNamed(context, '/play');
+    }
+  }
+
+  void _handleShuffle() {
+    setState(() {
+      _formKey.currentState.save();
+      _playerNames = <String>[
+        _playerNames[0],
+        _playerNames[2],
+        _playerNames[4],
+        _playerNames[1],
+        _playerNames[3],
+      ];
+      _formKey = new GlobalKey<FormState>();  // remake the form
+    });
+    _checkFriends();
+  }
+
   void _handleDragAccept(int from, int to) {
     setState(() {
-      FormState form = _formKey.currentState;
-      form.save();
-
+      _formKey.currentState.save();
       String dragging = _playerNames[from];
       _playerNames = new List<String>.from(_playerNames);  // make it growable
       _playerNames.removeAt(from);
       _playerNames.insert(to, dragging);
       _formKey = new GlobalKey<FormState>();  // remake the form
     });
+    _checkFriends();
+  }
+
+  void _checkFriends() {
+    Map<String, List<String>> friends = <String, List<String>>{};
+    for (int i = 0; i < 5; i++)
+      friends[_playerNames[i]] = <String>[_playerNames[friend1(i)], _playerNames[friend2(i)]];
+
+    Map<String, List<int>> repeats = <String, List<int>>{};
+    int gameNum = 1;
+    for (Game game in config.app.currentRound) {
+      for (int i = 0; i < 5; i++) {
+        String playerName = game.players[i].name;
+        List<String> newFriends = friends[playerName];
+        List<String> oldFriends = <String>[game.players[friend1(i)].name, game.players[friend2(i)].name];
+        if (newFriends.contains(oldFriends[0]) && newFriends.contains(oldFriends[1])) {
+          repeats[playerName] ??= <int>[];
+          repeats[playerName].add(gameNum);
+        }
+      }
+      gameNum++;
+    }
+
+    _warnings = '';
+    for (String name in repeats.keys) {
+      if (repeats[name].isNotEmpty)
+        _warnings += '$name had these partners in ${_gamesString(repeats[name])}\n';
+    }
+  }
+
+  String _gamesString(List<int> gameNums) {
+    return '${gameNums.length == 1 ? "game" : "games"} ${gameNums.join(" and ")}';
   }
 }
 
