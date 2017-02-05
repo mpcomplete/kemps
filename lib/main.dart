@@ -789,7 +789,7 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
             padding: const EdgeInsets.only(top: 12.0, left: 12.0),
             child: new Text('Profits:', style: Theme.of(context).textTheme.headline),
           ),
-          new KempsProfits(app: config.app)
+          new KempsProfits(app: config.app, game: config.app.games[_gameIndex])
         ]
       )
     );
@@ -812,9 +812,9 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
     Offset delta = details.globalPosition - _dragStartPosition;
     setState(() {
       _dragDelta = delta.dx / context.size.width;
-      if (_gameNum == 1)  // can't drag right
+      if (_gameIndex == 0)  // can't drag right
         _dragDelta = math.min(_dragDelta, 0.0);
-      if (_gameNum == config.app.getGamesForRound(_roundNum).length)  // can't drag left
+      if (_gameIndex == config.app.games.length-1)  // can't drag left
         _dragDelta = math.max(_dragDelta, 0.0);
     });
   }
@@ -1033,11 +1033,11 @@ class KempsScoreGrid extends StatelessWidget {
 }
 
 class KempsProfits extends StatelessWidget {
-  KempsProfits({this.app}) :
-    currentProfits = _calculateProfitsForGame(app.currentGame),
-    totalProfits = _calculateProfitsForGames(app.currentRound);
+  KempsProfits({KempsAppState app, this.game}) :
+    currentProfits = _calculateProfitsForGame(game),
+    totalProfits = _calculateProfitsForGames(app.getGamesForRound(game.round));
 
-  final KempsAppState app;
+  final Game game;
   final List<double> currentProfits;
   final List<double> totalProfits;
 
@@ -1068,7 +1068,7 @@ class KempsProfits extends StatelessWidget {
 
   TableRow _buildProfitRow(int index) {
     return _buildRow([
-      app.players[index].name,
+      game.players[index].name,
       '${currentProfits[index].truncate()}',
       '${totalProfits[index].truncate()}',
     ]);
