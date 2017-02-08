@@ -224,7 +224,7 @@ class KempsStart extends StatelessWidget {
           app.games.isNotEmpty ?
             _makeButton('HISTORY', () { Navigator.pushNamed(context, '/history'); }) :
             new Container(),
-          _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); })
+          // _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); })
         ]
       )
     );
