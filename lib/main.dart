@@ -4,11 +4,17 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+
+import 'package:flutter/rendering.dart' show
+  debugPaintSizeEnabled;
 
 const String _kSettingsFile = 'settings.json';
+
+const bool debug = true;
+const bool debugRender = false;
 
 //     1
 //         2
@@ -103,7 +109,7 @@ class Settings {
   }
 
   static Future<File> _getFile() async {
-    String dir = (await PathProvider.getApplicationDocumentsDirectory()).path;
+    String dir = (await getApplicationDocumentsDirectory()).path;
     return new File('$dir/$_kSettingsFile');
   }
 }
@@ -195,7 +201,7 @@ class KempsAppState extends State<KempsApp> {
 class KempsStart extends StatelessWidget {
   KempsStart(this.app);
 
-  KempsAppState app;
+  final KempsAppState app;
 
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
@@ -224,7 +230,8 @@ class KempsStart extends StatelessWidget {
           app.games.isNotEmpty ?
             _makeButton('HISTORY', () { Navigator.pushNamed(context, '/history'); }) :
             new Container(),
-          // _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); })
+          debug ? _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); }) :
+            new Container()
         ]
       )
     );
@@ -249,13 +256,13 @@ class KempsNamesState extends State<KempsNames> {
   bool _autovalidate = false;
   String _warnings = '';
 
-  bool get _isNewRound => config.roundNum != config.app.currentRoundNum;
+  bool get _isNewRound => widget.roundNum != widget.app.currentRoundNum;
 
   @override
   void initState() {
     super.initState();
-    if (config.app.players != null)
-      _playerNames = config.app.players.map((Player p) => p.name).toList();
+    if (widget.app.players != null)
+      _playerNames = widget.app.players.map((Player p) => p.name).toList();
     _checkFriends();
   }
 
@@ -269,7 +276,8 @@ class KempsNamesState extends State<KempsNames> {
       body: new Form(
         key: _formKey,
         autovalidate: _autovalidate,
-        child: new Block(
+        child: new ListView(
+          shrinkWrap: true,
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           children: <Widget>[
             _makeInput(1),
@@ -306,15 +314,14 @@ class KempsNamesState extends State<KempsNames> {
                 dragAnchor: DragAnchor.pointer,
               ),
               new Expanded(
-                child: _isNewRound ? new TextField(
-                  labelText: 'Player $n',
-                  initialValue: new InputValue(text: _playerNames[n-1]),
-                  isDense: true,
-                  onSaved: (InputValue val) { _playerNames[n-1] = val.text; },
-                  validator: (InputValue val) { return val.text.isEmpty ? 'Required' : null; },
+                child: _isNewRound ? new TextFormField(
+                  decoration: new InputDecoration(labelText: 'Player $n'),
+                  initialValue: _playerNames[n-1],
+                  onSaved: (String val) { _playerNames[n-1] = val; },
+                  validator: (String val) { return val.isEmpty ? 'Required' : null; },
                 ) : new Container(
                   height: 64.0,
-                  alignment: FractionalOffset.centerLeft,
+                  alignment: Alignment.centerLeft,
                   child: new Text(_playerNames[n-1])
                 ),
               )
@@ -338,7 +345,7 @@ class KempsNamesState extends State<KempsNames> {
       _showInSnackBar('Please give every player a name.');
     } else {
       form.save();
-      config.app.initGame(_playerNames, config.roundNum);
+      widget.app.initGame(_playerNames, widget.roundNum);
       Navigator.popAndPushNamed(context, '/play');
     }
   }
@@ -379,7 +386,7 @@ class KempsNamesState extends State<KempsNames> {
 
     Map<String, List<int>> repeats = <String, List<int>>{};
     int gameNum = 1;
-    for (Game game in config.app.currentRound) {
+    for (Game game in widget.app.currentRound) {
       for (int i = 0; i < 5; i++) {
         String playerName = game.players[i].name;
         List<String> newFriends = friends[playerName];
@@ -414,7 +421,7 @@ enum KempsCall {
 class KempsPlay extends StatefulWidget {
   KempsPlay(this.app);
 
-  KempsAppState app;
+  final KempsAppState app;
 
   @override
   KempsPlayState createState() => new KempsPlayState();
@@ -430,7 +437,7 @@ class KempsPlayState extends State<KempsPlay> {
   int _caller;
   String _message;
 
-  List<Player> get players => config.app.players;
+  List<Player> get players => widget.app.players;
 
   @override
   void initState() {
@@ -443,14 +450,14 @@ class KempsPlayState extends State<KempsPlay> {
     return new Scaffold(
       key: _scaffoldKey,
       appBar: new AppBar(
-        title: new Text('Playing Round ${config.app.currentRoundNum} Game ${config.app.currentGameNum}')
+        title: new Text('Playing Round ${widget.app.currentRoundNum} Game ${widget.app.currentGameNum}')
       ),
       body: new Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           new KempsScoreGrid(
-            game: config.app.currentGame,
+            game: widget.app.currentGame,
             selected: _selected,
             enabled: _enabled,
             onSelectedChanged: _onSelectedChanged,
@@ -611,11 +618,11 @@ class KempsPlayState extends State<KempsPlay> {
   void _finishCall() {
     _resetCall();
     _checkForWinners();
-    config.app.save();
+    widget.app.save();
   }
 
   Future<Null> _checkForWinners() async {
-    List<Player> winners = config.app.currentGame.winners;
+    List<Player> winners = widget.app.currentGame.winners;
     if (winners.isNotEmpty && mounted) {
       await showDialog(
         context: context,
@@ -635,8 +642,8 @@ class KempsPlayState extends State<KempsPlay> {
   }
 
   void _endGame() {
-    assert(config.app.currentGame.winners.isNotEmpty);
-    Navigator.popAndPushNamed(context, '/scores/${config.app.games.length-1}');
+    assert(widget.app.currentGame.winners.isNotEmpty);
+    Navigator.popAndPushNamed(context, '/scores/${widget.app.games.length-1}');
   }
 
   List<int> get _selectedIndices {
@@ -732,39 +739,39 @@ class KempsScores extends StatefulWidget {
 class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
-  List<Player> get players => config.app.players;
+  List<Player> get players => widget.app.players;
 
-  Point _dragStartPosition;
+  Offset _dragStartPosition;
   double _dragDelta = 0.0;
   int _gameIndex;
 
   @override
   void initState() {
     super.initState();
-    _gameIndex = config.startGameIndex;
+    _gameIndex = widget.startGameIndex;
   }
 
   @override
   Widget build(BuildContext context) {
     List<Widget> scores = <Widget>[
         new FractionalTranslation(
-          translation: new FractionalOffset(_dragDelta, 0.0),
+          translation: new Offset(_dragDelta, 0.0),
           transformHitTests: true,
-          child: new KempsScoreGrid(game: config.app.games[_gameIndex])
+          child: new KempsScoreGrid(game: widget.app.games[_gameIndex])
         )
     ];
     if (_dragDelta > 0.0) {
       scores.insert(0, new FractionalTranslation(
-          translation: new FractionalOffset(_dragDelta - 1.0, 0.0),
+          translation: new Offset(_dragDelta - 1.0, 0.0),
           transformHitTests: true,
-          child: new KempsScoreGrid(game: config.app.games[_gameIndex-1])
+          child: new KempsScoreGrid(game: widget.app.games[_gameIndex-1])
         )
       );
     } else if (_dragDelta < 0.0) {
       scores.add(new FractionalTranslation(
-          translation: new FractionalOffset(_dragDelta + 1.0, 0.0),
+          translation: new Offset(_dragDelta + 1.0, 0.0),
           transformHitTests: true,
-          child: new KempsScoreGrid(game: config.app.games[_gameIndex+1])
+          child: new KempsScoreGrid(game: widget.app.games[_gameIndex+1])
         )
       );
     }
@@ -789,16 +796,16 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
             padding: const EdgeInsets.only(top: 12.0, left: 12.0),
             child: new Text('Profits:', style: Theme.of(context).textTheme.headline),
           ),
-          new KempsProfits(app: config.app, game: config.app.games[_gameIndex])
+          new KempsProfits(app: widget.app, game: widget.app.games[_gameIndex])
         ]
       )
     );
   }
 
-  int get _roundNum => config.app.games[_gameIndex].round;
+  int get _roundNum => widget.app.games[_gameIndex].round;
   int get _gameNum {
     for (int i = _gameIndex; i >= 0; i--) {
-      if (config.app.games[i].round != _roundNum)
+      if (widget.app.games[i].round != _roundNum)
         return _gameIndex - i;
     }
     return _gameIndex + 1;
@@ -814,7 +821,7 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
       _dragDelta = delta.dx / context.size.width;
       if (_gameIndex == 0)  // can't drag right
         _dragDelta = math.min(_dragDelta, 0.0);
-      if (_gameIndex == config.app.games.length-1)  // can't drag left
+      if (_gameIndex == widget.app.games.length-1)  // can't drag left
         _dragDelta = math.max(_dragDelta, 0.0);
     });
   }
@@ -848,7 +855,7 @@ class KempsScoresState extends State<KempsScores> with TickerProviderStateMixin 
 class KempsHistory extends StatefulWidget {
   KempsHistory(this.app);
 
-  KempsAppState app;
+  final KempsAppState app;
 
   @override
   KempsHistoryState createState() => new KempsHistoryState();
@@ -857,7 +864,7 @@ class KempsHistory extends StatefulWidget {
 class KempsHistoryState extends State<KempsHistory> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
-  List<Player> get players => config.app.players;
+  List<Player> get players => widget.app.players;
 
   @override
   void initState() {
@@ -883,7 +890,7 @@ class KempsHistoryState extends State<KempsHistory> {
     int gameNum = 1;
     int lastRoundNum = -1;
     List<Widget> items = <Widget>[];
-    for (Game game in config.app.games) {
+    for (Game game in widget.app.games) {
       if (game.round != lastRoundNum) {
         lastRoundNum = game.round;
         gameNum = 1;
@@ -896,7 +903,7 @@ class KempsHistoryState extends State<KempsHistory> {
   final DateFormat _kDateFormat = new DateFormat('EEE, yyyy MMM d, K:mm a');
 
   Widget _buildListItem(Game game, int gameNum, int gameIndex) {
-    return new ListItem(
+    return new ListTile(
       isThreeLine: false,
       dense: false,
       title: new Text(_kDateFormat.format(game.date)),
@@ -934,8 +941,15 @@ class KempsScoreGrid extends StatelessWidget {
             1: const FlexColumnWidth(3.0),
             2: const FlexColumnWidth(4.0)
           },
-          border: new TableBorder.all(color: Colors.black26),
-          children: new List<TableRow>.generate(5, (int i) => _buildRow(i))
+          border: new TableBorder.all(color: Colors.black26, width: 3.0),
+          // children: new List<TableRow>.generate(5, (int i) => _buildRow(i))
+          children: <TableRow>[
+            _buildRow(0),
+            _buildRow(1),
+            _buildRow(2),
+            _buildRow(3),
+            _buildRow(4),
+          ]
         )
       )
     );
@@ -990,7 +1004,7 @@ class KempsScoreGrid extends StatelessWidget {
                   new TableCell(
                     child: new Container(
                       padding: _kCellPadding,
-                      alignment: FractionalOffset.centerRight,
+                      alignment: Alignment.centerRight,
                       child: new Text(game.players[index].getProfitsWith(friend1(index)).toString()),
                     )
                   ),
@@ -1013,7 +1027,7 @@ class KempsScoreGrid extends StatelessWidget {
                   new TableCell(
                     child: new Container(
                       padding: _kCellPadding,
-                      alignment: FractionalOffset.centerRight,
+                      alignment: Alignment.centerRight,
                       child: new Text(game.players[index].getProfitsWith(friend2(index)).toString()),
                     )
                   ),
@@ -1081,7 +1095,7 @@ class KempsProfits extends StatelessWidget {
           verticalAlignment: TableCellVerticalAlignment.middle,
           child: new Container(
             padding: _kCellPadding,
-            alignment: c == 0 ? FractionalOffset.centerLeft : FractionalOffset.centerRight,
+            alignment: c == 0 ? Alignment.centerLeft : Alignment.centerRight,
             child: new Text(columns[c], style: style
             )
           )
@@ -1094,7 +1108,6 @@ class KempsProfits extends StatelessWidget {
 Widget _makeButton(String text, Function onPressed) {
   return new Container(
     padding: const EdgeInsets.all(20.0),
-    alignment: const FractionalOffset(0.5, 0.5),
     child: new RaisedButton(
       child: new Text(text),
       onPressed: onPressed
@@ -1114,7 +1127,7 @@ List<double> _calculateProfitsForGame(Game game, [List<double> profits]) {
   profits ??= new List<double>.filled(5, 0.0);
   List<Player> winners = game.winners;
   List<Player> players = game.players;
-  assert(winners.length >= 1 && winners.length <= 3);
+  // assert(winners.length >= 1 && winners.length <= 3);
   for (int i = 0; i < 5; i++) {
     if (players[i].score >= 5) {
       // Winners always gets 50. (Except the rare 3-winner case.)
@@ -1134,6 +1147,9 @@ List<double> _calculateProfitsForGame(Game game, [List<double> profits]) {
 }
 
 Future<Null> main() async {
+  if (debugRender) {
+    debugPaintSizeEnabled = true;
+  }
   await Settings.load();
   runApp(new KempsApp());
 }
