@@ -253,6 +253,8 @@ class KempsNamesState extends State<KempsNames> {
 
   GlobalKey<FormState> _formKey = new GlobalKey<FormState>();
   List<String> _playerNames = new List<String>.filled(5, '');
+  // TODO: remove this hack when https://github.com/flutter/flutter/issues/11500 is fixed.
+  List<TextEditingController> _textControllers;
   bool _autovalidate = false;
   String _warnings = '';
 
@@ -261,8 +263,15 @@ class KempsNamesState extends State<KempsNames> {
   @override
   void initState() {
     super.initState();
-    if (widget.app.players != null)
+    if (widget.app.players != null) {
       _playerNames = widget.app.players.map((Player p) => p.name).toList();
+    }
+    _textControllers = new List<TextEditingController>.generate(5, (int i) {
+      return new TextEditingController(text: _playerNames[i])
+        ..addListener(() {
+          _playerNames[i] = _textControllers[i].text;
+      });
+    });
     _checkFriends();
   }
 
@@ -316,9 +325,10 @@ class KempsNamesState extends State<KempsNames> {
               new Expanded(
                 child: _isNewRound ? new TextFormField(
                   decoration: new InputDecoration(labelText: 'Player $n'),
+                  controller: _textControllers[n-1],
                   initialValue: _playerNames[n-1],
-                  onSaved: (String val) { _playerNames[n-1] = val; },
-                  validator: (String val) { return val.isEmpty ? 'Required' : null; },
+                  onSaved: (String val) => _playerNames[n-1] = val,
+                  validator: (String val) => val.length < 1 ? 'Required' : null,
                 ) : new Container(
                   height: 64.0,
                   alignment: Alignment.centerLeft,
@@ -942,20 +952,20 @@ class KempsScoreGrid extends StatelessWidget {
             2: const FlexColumnWidth(4.0)
           },
           border: new TableBorder.all(color: Colors.black26, width: 3.0),
-          // children: new List<TableRow>.generate(5, (int i) => _buildRow(i))
-          children: <TableRow>[
-            _buildRow(0),
-            _buildRow(1),
-            _buildRow(2),
-            _buildRow(3),
-            _buildRow(4),
-          ]
+          children: new List<TableRow>.generate(5, (int i) => _buildRow(i))
+          ..addAll([_buildEmptyRowHack()])
         )
       )
     );
   }
 
   static const EdgeInsets _kCellPadding = const EdgeInsets.symmetric(horizontal: 8.0);
+
+  // TODO: remove this hack when https://github.com/flutter/flutter/issues/12902 is fixed.
+  TableRow _buildEmptyRowHack() {
+    TableCell emptyCell = new TableCell(child: new Container());
+    return new TableRow(children: [emptyCell, emptyCell, emptyCell]);
+  }
 
   TableRow _buildRow(int index) {
     return new TableRow(
