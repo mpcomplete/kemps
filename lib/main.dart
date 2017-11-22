@@ -13,7 +13,7 @@ import 'package:flutter/rendering.dart' show
 
 const String _kSettingsFile = 'settings.json';
 
-const bool debug = true;
+const bool debug = false;
 const bool debugRender = false;
 
 //     1
@@ -343,6 +343,7 @@ class KempsNamesState extends State<KempsNames> {
   }
 
   void _showInSnackBar(String value) {
+    _scaffoldKey.currentState.hideCurrentSnackBar();
     _scaffoldKey.currentState.showSnackBar(new SnackBar(
       content: new Text(value)
     ));
@@ -729,6 +730,7 @@ class KempsPlayState extends State<KempsPlay> {
   }
 
   void _showInSnackBar(String value) {
+    _scaffoldKey.currentState.hideCurrentSnackBar();
     _scaffoldKey.currentState.showSnackBar(new SnackBar(
       content: new Text(value),
       duration: const Duration(milliseconds: 5000)
