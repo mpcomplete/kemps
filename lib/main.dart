@@ -501,7 +501,7 @@ class KempsPlayState extends State<KempsPlay> {
           new Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              _call == null ? new Container() : _makeButton('CANCEL', _resetCall),
+              _call == null ? _makeButton('SCORES', _handleScores) : _makeButton('CANCEL', _resetCall),
             ]
           ),
         ]
@@ -614,6 +614,10 @@ class KempsPlayState extends State<KempsPlay> {
       _showInSnackBar('${_getNames([enemy1(_caller), enemy2(_caller)])} co-unkemps ${_getNames([_caller])}!');
       _finishCall();
     }
+  }
+
+  void _handleScores() {
+    Navigator.pushNamed(context, '/scores/${widget.app.games.length-1}');
   }
 
   void _resetCall() {
