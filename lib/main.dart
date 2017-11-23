@@ -13,7 +13,6 @@ import 'package:flutter/rendering.dart' show
 
 const String _kSettingsFile = 'settings.json';
 
-const bool debug = false;
 const bool debugRender = false;
 
 //     1
@@ -183,6 +182,10 @@ class KempsAppState extends State<KempsApp> {
     save();
   }
 
+  void deleteGame(int gameIndex) {
+    _games.removeAt(gameIndex);
+  }
+
   void load() {
     List json = Settings.get('games');
     if (json != null)
@@ -230,8 +233,6 @@ class KempsStart extends StatelessWidget {
           app.games.isNotEmpty ?
             _makeButton('HISTORY', () { Navigator.pushNamed(context, '/history'); }) :
             new Container(),
-          debug ? _makeButton('DEBUG CLEAR', () { Settings.save(<String, dynamic>{}); }) :
-            new Container()
         ]
       )
     );
@@ -877,10 +878,12 @@ class KempsHistoryState extends State<KempsHistory> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   List<Player> get players => widget.app.players;
+  List<bool> _selectedGames;
 
   @override
   void initState() {
     super.initState();
+    _selectedGames = new List<bool>.filled(widget.app.games.length, false);
   }
 
   @override
@@ -890,9 +893,14 @@ class KempsHistoryState extends State<KempsHistory> {
       appBar: new AppBar(
         title: new Text('Game History')
       ),
-      body: new ListView(
-        shrinkWrap: true,
-        children: _buildList(),
+      body: new Column(
+        children: <Widget>[
+          new ListView(
+            shrinkWrap: true,
+            children: _buildList(),
+          ),
+          _isSelecting ? _buildDeleteButton() : new Container(),
+        ]
       )
     );
   }
@@ -915,14 +923,48 @@ class KempsHistoryState extends State<KempsHistory> {
   final DateFormat _kDateFormat = new DateFormat('EEE, yyyy MMM d, K:mm a');
 
   Widget _buildListItem(Game game, int gameNum, int gameIndex) {
-    return new ListTile(
-      isThreeLine: false,
-      dense: false,
-      title: new Text(_kDateFormat.format(game.date)),
-      subtitle: new Text('Round ${game.round} Game $gameNum'),
-      onTap: () {
-        Navigator.pushNamed(context, '/scores/$gameIndex');
-      }
+    return new Container(
+      color: _selectedGames[gameIndex] ? Theme.of(context).textSelectionColor : Theme.of(context).cardColor,
+      child: new ListTile(
+        onLongPress: () => _onSelected(gameIndex),
+        onTap: _isSelecting ? () => _onSelected(gameIndex) : () {
+          Navigator.pushNamed(context, '/scores/$gameIndex');
+        },
+        isThreeLine: false,
+        dense: false,
+        title: new Text(_kDateFormat.format(game.date)),
+        subtitle: new Text('Round ${game.round} Game $gameNum'),
+      )
+    );
+  }
+
+  void _onSelected(int gameIndex) {
+    setState(() {
+      _selectedGames[gameIndex] = !_selectedGames[gameIndex];
+    });
+  }
+
+  bool get _isSelecting => _selectedGames.contains(true);
+
+  Widget _buildDeleteButton() {
+    return new Expanded(
+      child: new Container(
+        alignment: Alignment.bottomCenter,
+        margin: const EdgeInsets.all(16.0),
+        child: new RaisedButton(
+          child: new Text("DELETE"),
+          onPressed: () {
+            for (int i = _selectedGames.length-1; i >= 0; i--) {
+              if (_selectedGames[i])
+                widget.app.deleteGame(i);
+            }
+            widget.app.save();
+            setState(() {
+              _selectedGames = new List<bool>.filled(widget.app.games.length, false);
+            });
+          }
+        )
+      )
     );
   }
 }
