@@ -1110,8 +1110,8 @@ class KempsProfits extends StatelessWidget {
     totalProfits = _calculateProfitsForGames(app.getGamesForRound(game.round));
 
   final Game game;
-  final List<double> currentProfits;
-  final List<double> totalProfits;
+  final Map<String, double> currentProfits;
+  final Map<String, double> totalProfits;
 
   @override
   Widget build(BuildContext context) {
@@ -1139,10 +1139,11 @@ class KempsProfits extends StatelessWidget {
   static const EdgeInsets _kCellPadding = const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0);
 
   TableRow _buildProfitRow(int index) {
+    String name = game.players[index].name;
     return _buildRow([
-      game.players[index].name,
-      '${currentProfits[index].truncate()}',
-      '${totalProfits[index].truncate()}',
+      name,
+      '${currentProfits[name].truncate()}',
+      '${totalProfits[name].truncate()}',
     ]);
   }
 
@@ -1173,30 +1174,33 @@ Widget _makeButton(String text, Function onPressed) {
   );
 }
 
-List<double> _calculateProfitsForGames(List<Game> games) {
-  List<double> profits = new List<double>.filled(5, 0.0);
+Map<String, double> _calculateProfitsForGames(List<Game> games) {
+  Map<String, double> profits;
   for (Game game in games) {
-    _calculateProfitsForGame(game, profits);
+    profits = _calculateProfitsForGame(game, profits);
   }
   return profits;
 }
 
-List<double> _calculateProfitsForGame(Game game, [List<double> profits]) {
-  profits ??= new List<double>.filled(5, 0.0);
+Map<String, double> _calculateProfitsForGame(Game game, [Map<String, double> profits]) {
   List<Player> winners = game.winners;
   List<Player> players = game.players;
+
+  profits ??= new Map.fromIterable(
+    players, key: (Player p) => p.name, value: (Player _) => 0.0);
+
   // assert(winners.length >= 1 && winners.length <= 3);
   for (int i = 0; i < 5; i++) {
     if (players[i].score >= 5) {
       // Winners always gets 50. (Except the rare 3-winner case.)
-      profits[i] += (winners.length == 3) ? (100.0 / 3.0) : 50.0;
+      profits[players[i].name] += (winners.length == 3) ? (100.0 / 3.0) : 50.0;
       if (winners.length == 1) {
         // Divide the other 50 among friends.
         int sharing1 = players[i].getProfitsWith(friend1(i));
         int sharing2 = players[i].getProfitsWith(friend2(i));
         int total = sharing1 + sharing2;
-        profits[friend1(i)] += 50.0 * sharing1.toDouble()/total;
-        profits[friend2(i)] += 50.0 * sharing2.toDouble()/total;
+        profits[players[friend1(i)].name] += 50.0 * sharing1.toDouble()/total;
+        profits[players[friend2(i)].name] += 50.0 * sharing2.toDouble()/total;
       }
     }
   }
